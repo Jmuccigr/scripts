@@ -1,9 +1,5 @@
 #!/usr/bin/perl -w
 
-#use Getopt::Std;
-#%options=();
-#getopt("cts",\%options);
-
 my $optionalstring = '';
 
 use Getopt::Long;
