@@ -2,4 +2,15 @@
 
 Just some other scripts that aren't Apple.
 
-- wikitbl.pl: a perl script that converts simple text tables to wikipedia-style tables. No headings yet (which are desirable). Defaults to commas as the separators (which can also be forced using `-c`). Also can use tabs (with `-t`) or user-chosen with `-s <separator>`. Good for keeping data in csv or tab files and still make them available on wikipedia. Inspired by <http://wiki.crc.nd.edu/wiki/index.php/Convert_CSV_To_Wiki_Table>.
+- wikitbl.pl: a perl script that converts simple text tables to wikipedia-style tables. Syntax:
+
+        wikitbl.pl -c|-t|-s <separator> [-h] <input file> [<output file>]
+        
+        -c : columns are separated by comma (the default when no option is present)
+        -t : columns are separated by tab
+        -s <separator>: columns are separated by <separator>
+        -h : first row of file is treated as a table header
+        
+        If no output file is indicated, the output will go to STDOUT.
+        
+    Still to do: provide option for one-line-per-cell style.
