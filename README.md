@@ -28,3 +28,5 @@ Just some other scripts that aren't Apple.
     Still to do: provide option for one-line-per-cell style.
 
 - zotero_s_and_r.js: a javascript that does a search and replace in Zotero, using the Execute JS add-on for FireFox. See <https://forums.zotero.org/discussion/7707/1/find-and-replace-on-multiple-items/>.
+
+- convert_pdf: Use pdfimages to get the right dpi for a PDF and pass that along to convert.
