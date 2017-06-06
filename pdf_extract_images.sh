@@ -8,10 +8,11 @@
 # 4. Stop here to manually check the files.
 
 s=''
-j=1
+j=0
 deskew=''
 despeckle=''
 layout=''
+outputFormat=' -png '
 twice=false
 
 # set up functions to report Usage and Usage with Description
@@ -48,11 +49,13 @@ while test $# -gt 0; do
       fi
       op=2
       layout='double'
+      outputFormat=''
       shift
       ;;
     -single)
       op=1
       layout='single'
+      outputFormat=''
       shift
       ;;
     -twice)
@@ -64,6 +67,7 @@ while test $# -gt 0; do
       fi
       op=2
       layout='double'
+      outputFormat=''
       ;;
     -deskew)
       deskew=' -deskew 40% '
@@ -97,28 +101,41 @@ dir=`dirname "$1"`
 number=$RANDOM
 number="00$number"
 number=${number: -5}
-output="$number"_output_
+output="$number"_output
 convertdir="convert_$number"
 unpaperdir="unpaper_$number"
 unpaper2dir="unpaper2_$number"
 unpaper3dir="unpaper3_$number"
-
-mkdir "$dir/$convertdir/"
+cleandir="clean_$number"
+workingdir=$convertdir
 
 # Create images from the pdf, using existing dpi
+# 
+# s=$(pdfimages -list "$input" | grep '%' | head -n 1)
+# if [[ $s == '' ]]
+# then
+#   echo "Can't determine the dpi of the images. Using 72."
+#   dpi=72
+# else 
+#   a=( $s )
+#   INV=' '
+#   dpi=${a[12]}
+# fi
+# 
+#convert -density $dpi -depth 8 "$1" $deskew $despeckle "$dir/$convertdir/$output%03d.pgm"
 
-s=$(pdfimages -list "$input" | grep '%' | head -n 1)
-if [[ $s == '' ]]
+mkdir "$dir/$convertdir"
+pdfimages $outputFormat "$1" "$dir/$convertdir/$output"
+
+input=`ls "$dir/$convertdir/$output"* | head -n 1`
+extension="${input##*.}"
+
+if [[ $deskew != '' || $despeckle != '' ]]
 then
-  echo "Can't determine the dpi of the images. Using 72."
-  dpi=72
-else 
-  a=( $s )
-  INV=' '
-  dpi=${a[12]}
+  mkdir "$dir/$cleandir"
+  workingdir=$cleandir
+  convert $deskew $despeckle "$dir/$convertdir/$output-"* "$dir/$cleandir/$output-%03d.$extension" 1>/dev/null
 fi
-
-convert -density $dpi -depth 8 "$1" $deskew $despeckle "$dir/$convertdir/$output%03d.pgm"
 
 # Use unpaper on scans with 2 pages per image or if requested
 # Running it twice sometimes improves output
@@ -137,10 +154,16 @@ then
 	l=${k: -3}
 	if [[ $twice = true ]]
 	then
-	  unpaper -l $layout -op 1 "$dir/$convertdir/$i" "$dir/$unpaper2dir/$i"
-	  unpaper -l $layout -op 2 "$dir/$unpaper2dir/$i" "$dir/$unpaperdir/$output$l%02d.pgm"
+	  unpaper -l $layout -op 1 "$dir/$workingdir/$i" "$dir/$unpaper2dir/$i"
+	  unpaper -l $layout -op 2 "$dir/$unpaper2dir/$i" "$dir/$unpaperdir/$output-$l%02d.$extension"
 	else
-	  unpaper -l $layout -op $op "$dir/$convertdir/$i" "$dir/$unpaperdir/$output$l%02d.pgm"
+	if [[ $op -eq 1 ]]
+	then
+	  # Keep the same file name when image has a single page on it
+	  unpaper -l $layout -op $op "$dir/$workingdir/$i" "$dir/$unpaperdir/$output-$l.$extension"
+	else
+	  unpaper -l $layout -op $op "$dir/$workingdir/$i" "$dir/$unpaperdir/$output$l%02d.pgm"
+	fi
 	fi
     ((j++))
   done
