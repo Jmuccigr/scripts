@@ -3,9 +3,11 @@
 # OCR images of text and combine result into PDF
 #
 # 1. Make sure they're png, otherwise convert
-# 2. Create OCR and output to PDF with tesseract
-# 3. Combine into final PDF
-
+# 2. If size is too small for tesseract, enlarge
+# 3. Create OCR and output to PDF with tesseract
+#    For enlarged files, create blank version with text
+#    to merge with original-sized images
+# 4. Combine into final PDF
 
 png=true
 lang='eng'
@@ -14,6 +16,7 @@ number=$RANDOM
 number="00$number"
 number=${number: -5}
 workdir="$tempdir$number"_tesseract
+finaldir=''
 finalname=final_$number.pdf
 
 # Function to get dpi for 8.5 x 11 paper size (to nearest 10)
@@ -37,8 +40,29 @@ function get_dpi {
 	do
 	  dpi=`echo $(( dpi + 10 ))`
 	  h=`echo $(( height / dpi ))`
-	  echo $dpi
 	done
+	echo $dpi
+}
+
+# Function to set enlargement value for optimal tesseract OCR
+# Recommended at least 300 dpi
+function get_enlargement {
+	imgDPI=$1
+	minDPI=300
+	testDPI=`expr $minDPI - 1`
+	enlarge=0
+	if [[ ! $imgDPI -gt $testDPI ]]
+	then
+	  newDPI=$imgDPI
+	  while [[ ! $newDPI -gt $testDPI ]]
+	  do
+		enlarge=`echo $(( $enlarge + 1 ))`
+        newDPI=`echo $(( $imgDPI * $enlarge))`
+	  done
+	else
+	  enlarge=1
+	fi
+	echo "$enlarge"00%
 }
 
 # set up functions to report Usage and Usage with Description
@@ -106,10 +130,13 @@ filename=`basename "$1"`
 firstchar=${filename:0:1}
 input=$(cd "$(dirname "$1")"; pwd)/"$filename"
 extension="${input##*.}"
+
 dir=`dirname "$input"`
-#dir=`echo $dir | sed "s/ /\\\\\ /g"`
 pngdir=$dir
 mkdir $workdir
+mkdir $workdir/big
+mkdir $workdir/final
+finaldir=$workdir
 
 # OCR and save to PDF
 if [[ $extension != 'png' ]]
@@ -129,8 +156,18 @@ fi
 for i in `ls "$pngdir/"*".png"`
 do
   filename=`basename $i`
-  tesseract -l $lang "$i" "$workdir/$filename"
+if [[ $dpi -lt 300 ]]
+  then
+    # enlarge=`echo $(( 100 * ( 1 + (299/$dpi)) ))`
+    enlarge=`get_enlargement "$dpi"`
+    finaldir=$workdir/final
+	convert -resize $enlarge "$i" "$workdir/big/$filename"
+	convert "$i" "$workdir/$filename.pdf"
+    tesseract -l $lang -c textonly_pdf=1 "$workdir/big/$filename" "$workdir/big/$filename" pdf
+    pdftk "$workdir/$filename.pdf" multibackground "$workdir/big/$filename.pdf" output "$finaldir/$filename.pdf"
+  else
+    tesseract -l $lang "$workdir/$filename" "$finaldir/$filename" pdf
+  fi
 done
 
-sleep 3
-pdfunite $workdir/*.pdf "$dir/$finalname"
+sleep 5 && pdfunite "$finaldir/"*.pdf "$dir/$finalname"
