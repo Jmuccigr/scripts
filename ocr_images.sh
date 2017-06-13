@@ -10,7 +10,7 @@
 # 4. Combine into final PDF
 
 png=true
-lang='eng'
+lang=''
 number=$RANDOM
 number="00$number"
 number=${number: -5}
@@ -68,7 +68,6 @@ function get_enlargement {
 
 # set up functions to report Usage and Usage with Description
 PROGNAME=`type $0 | awk '{print $3}'`       # search for convert executable on path
-PROGDIR=`dirname $PROGNAME`                 # extract directory of program
 PROGNAME=`basename $PROGNAME`               # base name of program
 
 # Read flags
@@ -138,6 +137,19 @@ mkdir $workdir
 mkdir $workdir/big
 mkdir $workdir/final
 finaldir=$workdir
+
+# Check for language. Easy to forget to specify.
+# Needs some error checking
+if [[ $lang == '' ]]
+then
+    read -p 'No language was specified. Hit enter to use English or supply the 3-letter language code: ' langInput
+    if [[ $langInput == '' ]]
+    then
+        lang='eng'
+    else
+        lang=$langInput
+    fi
+fi
 
 # OCR and save to PDF
 if [[ $extension != 'png' ]]
