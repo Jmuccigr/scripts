@@ -11,10 +11,11 @@
 
 png=true
 lang='eng'
-tempdir=`echo $TMPDIR`
 number=$RANDOM
 number="00$number"
 number=${number: -5}
+
+tempdir=`echo $TMPDIR`
 workdir="$tempdir$number"_tesseract
 finaldir=''
 finalname=final_$number.pdf
