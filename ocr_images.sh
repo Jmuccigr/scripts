@@ -71,6 +71,11 @@ PROGNAME=`type $0 | awk '{print $3}'`       # search for convert executable on p
 PROGNAME=`basename $PROGNAME`               # base name of program
 
 # Read flags
+# Provide help if no argument
+if [[ $# == 0 ]]
+then
+    set -- "-h"
+fi
 
 while test $# -gt 0; do
   case "$1" in

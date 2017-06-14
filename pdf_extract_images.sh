@@ -26,6 +26,12 @@ PROGDIR=`dirname $PROGNAME`                 # extract directory of program
 PROGNAME=`basename $PROGNAME`               # base name of program
 
 # Read flags
+# Provide help if no argument
+if [[ $# == 0 ]]
+then
+    set -- "-h"
+fi
+
 while test $# -gt 0; do
   case "$1" in
     -h|--help)
