@@ -14,6 +14,11 @@ despeckle=''
 layout=''
 outputFormat=' -png '
 twice=false
+number=$RANDOM
+number="00$number"
+number=${number: -5}
+output="$number"_output
+unpaperOptions="--no-border-align" # Supposed to be the default, but isn't
 
 # set up functions to report Usage and Usage with Description
 PROGNAME=`type convert | awk '{print $3}'`  # search for convert executable on path
@@ -98,31 +103,13 @@ fi
 # Use file's directory for temporary files
 dir=`dirname "$1"`
 
-number=$RANDOM
-number="00$number"
-number=${number: -5}
-output="$number"_output
+# Set up working directories
 convertdir="convert_$number"
 unpaperdir="unpaper_$number"
 unpaper2dir="unpaper2_$number"
 unpaper3dir="unpaper3_$number"
 cleandir="clean_$number"
 workingdir=$convertdir
-
-# Create images from the pdf, using existing dpi
-# 
-# s=$(pdfimages -list "$input" | grep '%' | head -n 1)
-# if [[ $s == '' ]]
-# then
-#   echo "Can't determine the dpi of the images. Using 72."
-#   dpi=72
-# else 
-#   a=( $s )
-#   INV=' '
-#   dpi=${a[12]}
-# fi
-# 
-#convert -density $dpi -depth 8 "$1" $deskew $despeckle "$dir/$convertdir/$output%03d.pgm"
 
 mkdir "$dir/$convertdir"
 pdfimages $outputFormat "$1" "$dir/$convertdir/$output"
@@ -154,8 +141,8 @@ then
 	l=${k: -3}
 	if [[ $twice = true ]]
 	then
-	  unpaper -l $layout -op 1 "$dir/$workingdir/$i" "$dir/$unpaper2dir/$i"
-	  unpaper -l $layout -op 2 "$dir/$unpaper2dir/$i" "$dir/$unpaperdir/$output-$l%02d.$extension"
+	  unpaper "$unpaperOptions" -l $layout -op 1 "$dir/$workingdir/$i" "$dir/$unpaper2dir/$i"
+	  unpaper "$unpaperOptions" -l $layout -op 2 "$dir/$unpaper2dir/$i" "$dir/$unpaperdir/$output-$l%02d.$extension"
 	else
 	if [[ $op -eq 1 ]]
 	then
