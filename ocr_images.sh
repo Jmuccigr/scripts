@@ -22,7 +22,7 @@ finalname=final_$number.pdf
 
 # Function to get dpi for 8.5 x 11 paper size (to nearest 10)
 function get_dpi {
-	size=`convert "$1" -format "%w x %h" info:`
+	size=`identify -format "%w x %h" "$1"`
 	width=${size%% *}
 	height=${size##* }
 	if [[ $height -lt $width ]]
@@ -152,8 +152,8 @@ then
 fi
 
 # OCR and save to PDF
-if [[ $extension != 'png' ]]
-then
+# if [[ $extension != 'png' ]]
+# then
   png=false
   pngdir=$workdir
   # Convert to png which tesseract leaves alone when making PDF
@@ -164,7 +164,7 @@ then
 	output=${output%.*}
     convert -units PixelsPerInch "$dir/$i" -density $dpi "$pngdir/$output.png"
   done
-fi
+# fi
 
 for i in `ls "$pngdir/"*".png"`
 do
