@@ -137,7 +137,7 @@ input=$(cd "$(dirname "$1")"; pwd)/"$filename"
 extension="${input##*.}"
 
 dir=`dirname "$input"`
-pngdir=$dir
+workdir=$dir
 mkdir $workdir
 mkdir $workdir/big
 mkdir $workdir/final
@@ -157,21 +157,19 @@ then
 fi
 
 # OCR and save to PDF
-# if [[ $extension != 'png' ]]
-# then
-  png=false
-  pngdir=$workdir
-  # Convert to png which tesseract leaves alone when making PDF
-  for i in `cd "$dir"; ls $firstchar*.$extension`
-  do
-    dpi=`get_dpi "$dir/$i"`
-	output=`basename "$i"`
-	output=${output%.*}
-    convert -units PixelsPerInch "$dir/$i" -density $dpi "$pngdir/$output.png"
-  done
-# fi
+# Convert to correctly sized png which tesseract leaves alone when making PDF
+for i in `cd "$dir"; ls $firstchar*.$extension`
+do
+  dpi=`get_dpi "$dir/$i"`
+  output=`basename "$i"`
+  output=${output%.*}
+  convert -units PixelsPerInch "$dir/$i" -density $dpi "$workdir/$output.png"
+done
 
-for i in `ls "$pngdir/"*".png"`
+# Enlarge if the dpi is too small for a good tesseract reading
+# A bit arbitrary to use 300 dpi as minimum. Should estimate better.
+# Make a PDF of original and combine with no-image PDF from tesseract.
+for i in `ls "$workdir/"*".png"`
 do
   filename=`basename $i`
 if [[ $dpi -lt 300 ]]
@@ -188,4 +186,5 @@ if [[ $dpi -lt 300 ]]
   fi
 done
 
+# Sleeping to avoid some unexpected terminations
 sleep 5 && pdfunite "$finaldir/"*.pdf "$dir/$finalname"
