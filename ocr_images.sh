@@ -9,17 +9,6 @@
 #    to merge with original-sized images
 # 4. Combine into final PDF
 
-png=true
-lang=''
-number=$RANDOM
-number="00$number"
-number=${number: -5}
-
-tempdir=`echo $TMPDIR`
-workdir="$tempdir$number"_tesseract
-finaldir=''
-finalname=final_$number.pdf
-
 # Function to get dpi for 8.5 x 11 paper size (to nearest 10)
 function get_dpi {
 	size=`identify -format "%w x %h" "$1"`
@@ -65,6 +54,14 @@ function get_enlargement {
 	fi
 	echo "$enlarge"00%
 }
+
+# Set some variables
+png=true
+lang=''
+number=$RANDOM
+number="00$number"
+number=${number: -5}
+finalname=final_$number.pdf
 
 # set up functions to report Usage and Usage with Description
 PROGNAME=`type $0 | awk '{print $3}'`       # search for convert executable on path
@@ -117,7 +114,7 @@ then
   finalextension="${finalname##*.}"
   if [[ $finalextension != 'pdf' ]]
   then
-    finalname=$finalname.pdf
+    finalname="$finalname".pdf
   fi
 fi
 
@@ -130,18 +127,22 @@ then
   exit 0
 fi
 
-# Get absolute path
+# Get absolute path & file info
 filename=`basename "$1"`
 firstchar=${filename:0:1}
 input=$(cd "$(dirname "$1")"; pwd)/"$filename"
 extension="${input##*.}"
 
-dir=`dirname "$input"`
-workdir=$dir
+origin_dir=`dirname "$input"`
+
+# Create work directories in the system temp folder
+tempdir=`echo $TMPDIR`
+workdir="$tempdir$number"_tesseract
+finaldir=$workdir
+
 mkdir $workdir
 mkdir $workdir/big
 mkdir $workdir/final
-finaldir=$workdir
 
 # Check for language. Easy to forget to specify.
 # Needs some error checking
@@ -158,12 +159,12 @@ fi
 
 # OCR and save to PDF
 # Convert to correctly sized png which tesseract leaves alone when making PDF
-for i in `cd "$dir"; ls $firstchar*.$extension`
+for i in `cd "$origin_dir"; ls $firstchar*.$extension`
 do
-  dpi=`get_dpi "$dir/$i"`
+  dpi=`get_dpi "$origin_dir/$i"`
   output=`basename "$i"`
   output=${output%.*}
-  convert -units PixelsPerInch "$dir/$i" -density $dpi "$workdir/$output.png"
+  convert -units PixelsPerInch "$origin_dir/$i" -density $dpi "$workdir/$output.png"
 done
 
 # Enlarge if the dpi is too small for a good tesseract reading
@@ -187,4 +188,4 @@ if [[ $dpi -lt 300 ]]
 done
 
 # Sleeping to avoid some unexpected terminations
-sleep 5 && pdfunite "$finaldir/"*.pdf "$dir/$finalname"
+sleep 5 && pdfunite "$finaldir/"*.pdf "$origin_dir/$finalname"
