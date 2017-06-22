@@ -159,20 +159,20 @@ fi
 
 # OCR and save to PDF
 # Convert to correctly sized png which tesseract leaves alone when making PDF
-for i in `cd "$origin_dir"; ls $firstchar*.$extension`
+for i in "$origin_dir"/"$firstchar"*."$extension"
 do
-  dpi=`get_dpi "$origin_dir/$i"`
+  dpi=`get_dpi "$i"`
   output=`basename "$i"`
   output=${output%.*}
-  convert -units PixelsPerInch "$origin_dir/$i" -density $dpi "$workdir/$output.png"
+  convert -units PixelsPerInch "$i" -density $dpi "$workdir/$output.png"
 done
 
 # Enlarge if the dpi is too small for a good tesseract reading
 # A bit arbitrary to use 300 dpi as minimum. Should estimate better.
 # Make a PDF of original and combine with no-image PDF from tesseract.
-for i in `ls "$workdir/"*".png"`
+for i in "$workdir/"*".png"
 do
-  filename=`basename $i`
+  filename=`basename "$i"`
 if [[ $dpi -lt 300 ]]
   then
     # enlarge=`echo $(( 100 * ( 1 + (299/$dpi)) ))`
