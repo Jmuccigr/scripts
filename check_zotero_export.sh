@@ -5,10 +5,15 @@
 me=$(whoami)
 dest="/Users/$me/Documents/github/local/miscellaneous"
 f="My Library.json"
-
 if [ ! -s "$dest/$f" ]
 then
-    echo 'Darn it!' | mail -s 'Zotero export failed' john
+    #echo 'Darn it' | mail -s 'Zotero export failed' "$me"
+    /usr/local/bin/terminal-notifier -message "Zotero export failed." -title "Zotero"
+    echo "$(date +%Y-%m-%d\ %H:%M:%S) Zotero export has failed." 1>&2
+    if [ -e "$dest/$f" ]
+    then
+        rm "$dest/$f"
+    fi
 else
     # Commit it to github when it's changed
     gitList=$(cd "$dest"; git status -s)
@@ -16,7 +21,6 @@ else
     if [ ${#gitItem} -ne 0 ] 
         then 
             echo "$(date +%Y-%m-%d\ %H:%M:%S) \"$f\" pushed to github" 1>&2
-            cd "$dest";git commit -m 'Regular update' "$f"
+            cd "$dest";git commit -m 'Automated update' "$f"
     fi
 fi
-
