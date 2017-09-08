@@ -195,9 +195,9 @@ then
 	  if [[ $op -eq 1 ]]
 	  then
 	    # Keep the same file name when image has a single page on it
-        unpaper -l $layout -op $op "$i" "$dir/$unpaperdir/$output-$l".pgm
+        unpaper "$unpaperOptions" -l $layout -op $op "$i" "$dir/$unpaperdir/$output-$l".pgm
       else
-        unpaper -l $layout -op $op "$i" "$dir/$unpaperdir/$output"-"$l"-%02d.pgm
+        unpaper "$unpaperOptions" -l $layout -op $op "$i" "$dir/$unpaperdir/$output"-"$l"-%02d.pgm
 	  fi
 	fi
     ((j++))
