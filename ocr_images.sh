@@ -164,7 +164,7 @@ do
   dpi=`get_dpi "$i"`
   output=`basename "$i"`
   output=${output%.*}
-  convert -units PixelsPerInch "$i" -density $dpi "$workdir/$output.png"
+  convert -units PixelsPerInch "$i" -density $dpi +repage "$workdir/$output.png"
 done
 
 # Enlarge if the dpi is too small for a good tesseract reading
@@ -178,9 +178,13 @@ if [[ $dpi -lt 300 ]]
     # enlarge=`echo $(( 100 * ( 1 + (299/$dpi)) ))`
     enlarge=`get_enlargement "$dpi"`
     finaldir=$workdir/final
+	# Create enlarged file for tesseract
 	convert -resize $enlarge "$i" "$workdir/big/$filename"
+	# Create PDF at original size
 	convert "$i" "$workdir/$filename.pdf"
+	# Create text-only PDF with tesseract
     tesseract -l $lang -c textonly_pdf=1 "$workdir/big/$filename" "$workdir/big/$filename" pdf
+    # Combine two PDF files for final version
     pdftk "$workdir/$filename.pdf" multibackground "$workdir/big/$filename.pdf" output "$finaldir/$filename.pdf"
   else
     tesseract -l $lang "$workdir/$filename" "$finaldir/$filename" pdf

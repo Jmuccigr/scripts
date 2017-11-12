@@ -231,7 +231,7 @@ then
 #   else
 #     search_string="$origin_dir/$firstchar"*".$input_extension"
 #   fi
-  convert $deskew $despeckle "${search_string[@]}" "$dir/$cleandir/$output"-%03d.$extension 1>/dev/null
+  convert $deskew $despeckle +repage "${search_string[@]}" "$dir/$cleandir/$output"-%03d.$extension 1>/dev/null
   echo string: $deskew $despeckle "${search_string[@]}" "$dir/$cleandir/$output"-%03d.$extension 1>/dev/null
   origin_dir="$dir/$cleandir"
   search_string=("$origin_dir/$output-"*)
@@ -253,7 +253,7 @@ for i in "${search_string[@]}"
     k="00$j"
     l=${k: -3}
     # echo "$dir/$bgcleandir/$output"-$l.$extension
-    convert "$i" -colorspace gray -contrast-stretch 5%,90% \( +clone -canny 0x1+10%+30% -morphology Close:3 Disk:2.5 \) -compose divide_src -composite "$dir/$bgcleandir/$output"-$l.$extension 1>/dev/null
+    convert "$i" -colorspace gray -contrast-stretch 5%,90% \( +clone -canny 0x1+10%+30% -morphology Close:3 Disk:2.5 \) -compose divide_src -composite +repage "$dir/$bgcleandir/$output"-$l.$extension 1>/dev/null
   #  convert "$search_string" \( +clone -blur 3 -level 10%,75% -negate -morphology dilate disk:2.5 \) -compose divide_src -composite "$dir/$bgcleandir/$output"-%03d.$extension 1>/dev/null
     ((j++))
   done
