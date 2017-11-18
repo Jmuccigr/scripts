@@ -11,10 +11,12 @@
 s=''
 j=0
 bgclean=false
+deg=0
 deskew=''
 despeckle=''
 layout=''
 outputFormat=' -png '
+rotate=false
 twice=false
 number=$RANDOM
 number="0000$number"
@@ -40,6 +42,7 @@ while test $# -gt 0; do
       echo " "
       echo "options:"
       echo "-h, --help    Show brief help."
+      echo "-rotate <deg> Rotate input file stated degrees clockwise."
       echo "-single       Process input file with unpaper at one page per image."
       echo "              This will eliminate the right-hand page if there are two."
       echo "-double       Process input file with unpaper at two pages per image."
@@ -63,6 +66,12 @@ while test $# -gt 0; do
       echo " "
       echo "Check quality of output files before proceeding to OCR."
       exit 0
+      ;;
+    -rotate)
+      shift
+      deg=$1
+      rotate=true
+      shift
       ;;
     -double)
       if [[ "$twice" == true ]]
@@ -124,7 +133,7 @@ then
 fi
 
 # Throw warning when nothing to be done
-if [[ $input_extension != 'pdf' && $layout == '' && $deskew == '' && $despeckle == '' && $bgclean == false ]]
+if [[ $input_extension != 'pdf' && $layout == '' && $deskew == '' && $despeckle == '' && $bgclean == false && $rotate == false ]]
 then
     echo ''
     echo  -e "\a    Oops! Nothing will happen to non-PDF files unless some processing is specified."
@@ -145,6 +154,7 @@ fi
 dir=`dirname "$1"`
 
 # Set up working directories
+rotatedir="rotated_$number"
 convertdir="convert_$number"
 unpaperdir="unpaper_$number"
 unpaper2dir="unpaper2_$number"
@@ -175,6 +185,25 @@ else
   search_string_prefix="$origin_dir/$firstchar"
   search_string_suffix=".$input_extension"
   search_string=("$origin_dir/$firstchar"*".$input_extension")
+fi
+
+# rotate
+if [[ $rotate == true ]]
+then
+  # echo "${search_string[@]}"
+  extension='png'
+  mkdir "$dir/$rotatedir"
+#  workingdir="$cleandir"
+#   if [[ $input_extension == 'pdf' ]]
+#   then
+#     search_string="$origin_dir/$output-"*
+#   else
+#     search_string="$origin_dir/$firstchar"*".$input_extension"
+#   fi
+  convert -rotate $deg -define png:compression-filter=1 -define png:compression-level=3 -define png:compression-strategy=0 +repage "${search_string[@]}" "$dir/$rotatedir/$output"-%03d.$extension 1>/dev/null
+  echo string: $deskew $despeckle "${search_string[@]}" "$dir/$rotatedir/$output"-%03d.$extension 1>/dev/null
+  origin_dir="$dir/$rotatedir"
+  search_string=("$origin_dir/$output-"*)
 fi
 
 # First use unpaper on scans with 2 pages per image or if requested
@@ -231,7 +260,7 @@ then
 #   else
 #     search_string="$origin_dir/$firstchar"*".$input_extension"
 #   fi
-  convert $deskew $despeckle +repage "${search_string[@]}" "$dir/$cleandir/$output"-%03d.$extension 1>/dev/null
+  convert $deskew $despeckle -define png:compression-filter=1 -define png:compression-level=3 -define png:compression-strategy=0 +repage "${search_string[@]}" "$dir/$cleandir/$output"-%03d.$extension 1>/dev/null
   echo string: $deskew $despeckle "${search_string[@]}" "$dir/$cleandir/$output"-%03d.$extension 1>/dev/null
   origin_dir="$dir/$cleandir"
   search_string=("$origin_dir/$output-"*)
@@ -253,7 +282,7 @@ for i in "${search_string[@]}"
     k="00$j"
     l=${k: -3}
     # echo "$dir/$bgcleandir/$output"-$l.$extension
-    convert "$i" -colorspace gray -contrast-stretch 5%,90% \( +clone -canny 0x1+10%+30% -morphology Close:3 Disk:2.5 \) -compose divide_src -composite +repage "$dir/$bgcleandir/$output"-$l.$extension 1>/dev/null
+    convert "$i" -colorspace gray -contrast-stretch 5%,90% \( +clone -canny 0x1+10%+30% -morphology Close:3 Disk:2.5 \) -compose divide_src -composite -define png:compression-filter=1 -define png:compression-level=3 -define png:compression-strategy=0 +repage "$dir/$bgcleandir/$output"-$l.$extension 1>/dev/null
   #  convert "$search_string" \( +clone -blur 3 -level 10%,75% -negate -morphology dilate disk:2.5 \) -compose divide_src -composite "$dir/$bgcleandir/$output"-%03d.$extension 1>/dev/null
     ((j++))
   done
