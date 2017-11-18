@@ -164,7 +164,7 @@ do
   dpi=`get_dpi "$i"`
   output=`basename "$i"`
   output=${output%.*}
-  convert -units PixelsPerInch "$i" -density $dpi +repage "$workdir/$output.png"
+  convert -units PixelsPerInch "$i" -density $dpi +repage -define png:compression-filter=1 -define png:compression-level=3 -define png:compression-strategy=0 "$workdir/$output.png"
 done
 
 # Enlarge if the dpi is too small for a good tesseract reading
