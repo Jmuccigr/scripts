@@ -6,6 +6,7 @@
 # To-do: add option to specify % increase in size with current set as default.
 
 sizegiven=false
+usemax=false
 sidegiven="top"
 side="north"
 
@@ -32,7 +33,7 @@ while test $# -gt 0; do
       echo "-size         Create new file at given size. Format should be:"
       echo "              <width>x<height>."
       echo "              Where width and height are integers."
-      echo ""
+      echo "-max          Use maximum existing file dimensions for new size"
       echo "-side <top|bottom|left|right|north|south|east|west>"
       echo "              Choose side to align image file. Default is top/north."
       exit 0
@@ -41,6 +42,10 @@ while test $# -gt 0; do
       sizegiven=true
       shift
       size=$1
+      shift
+      ;;
+    -max)
+      usemax=true
       shift
       ;;
     -side)
@@ -79,6 +84,7 @@ then
     finalextension=".$finalextension"
 fi
 
+# Get max width and height
 filew=`identify -format "%w\n" "$dir"/*$finalextension | sort -r | head -n 1`
 fileh=`identify -format "%h\n" "$dir"/*$finalextension | sort -r | head -n 1`
 if [[ $sizegiven == true ]]
@@ -96,16 +102,21 @@ then
         exit 0
     fi
 else
-    wd=$(( filew / 20 ))
-    hd=$(( fileh / 20 ))
-    w=$(( filew + wd * 2 ))
-    h=$(( fileh + hd * 2 ))
+    if [[ $usemax == true ]]
+    then
+        w=$filew
+        h=$fileh
+    else
+        wd=$(( filew / 20 ))
+        hd=$(( fileh / 20 ))
+        w=$(( filew + wd * 2 ))
+        h=$(( fileh + hd * 2 ))
+    fi
 fi
-
 # Generate unique white filename from date & time stamp
 number=`date "+%Y%m%d%H%M%S"`
 finalname=white_$number.png
-convert -size "$w"x"$h" -background white xc: $TMPDIR/$finalname
+convert -size "$w"x"$h" -background white xc: $TMPDIR$finalname
 
 # Create new directory & save converted files in it
 # Put existing file 5% down from the top of the background page
