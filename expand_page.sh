@@ -7,8 +7,9 @@
 
 sizegiven=false
 usemax=false
-sidegiven="top"
+color="white"
 side="north"
+sidegiven="top"
 
 # Read flags
 # Provide help if no argument
@@ -22,21 +23,28 @@ while test $# -gt 0; do
     -h|--help)
       echo "A script to take all files in a directory that have the same extension"
       echo "and increase their size by putting them on a larger canvas."
+      echo ""
       echo "By default the new canvas is white and the size is increased by 10% in"
-      echo "both width and height. By default the old image is placed 5% from"
-      echo "the top of the new canvas."
+      echo "both width and height. The old image is placed 5% from the top of"
+      echo "the new canvas."
       echo ""
       echo "expand_page.sh [options] input_file"
-      echo " "
+      echo ""
       echo "options:"
       echo "-h, --help    Show this brief help."
+      echo "-color        Set the background color. Default is white."
+      echo "              Surround numeric colors by quotation marks, e.g., \"#444\"."
       echo "-size         Create new file at given size. Format should be:"
-      echo "              <width>x<height>."
-      echo "              Where width and height are integers."
+      echo "              <width>x<height>, where width and height are integers."
       echo "-max          Use maximum existing file dimensions for new size"
       echo "-side <top|bottom|left|right|north|south|east|west>"
       echo "              Choose side to align image file. Default is top/north."
       exit 0
+      ;;
+    -color)
+      shift
+      color=$1
+      shift
       ;;
     -size)
       sizegiven=true
@@ -115,8 +123,8 @@ else
 fi
 # Generate unique white filename from date & time stamp
 number=`date "+%Y%m%d%H%M%S"`
-finalname=white_$number.png
-convert -size "$w"x"$h" -background white xc: $TMPDIR$finalname
+finalname="$color"_$number.png
+convert -size "$w"x"$h" -background "$color" xc: "$TMPDIR$finalname"
 
 # Create new directory & save converted files in it
 # Put existing file 5% down from the top of the background page
