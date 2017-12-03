@@ -93,8 +93,8 @@ then
 fi
 
 # Get max width and height
-filew=`identify -format "%w\n" "$dir"/*$finalextension | sort -r | head -n 1`
-fileh=`identify -format "%h\n" "$dir"/*$finalextension | sort -r | head -n 1`
+filew=`identify -format "%w\n" "$dir"/*$finalextension | sort -rg | head -n 1`
+fileh=`identify -format "%h\n" "$dir"/*$finalextension | sort -rg | head -n 1`
 if [[ $sizegiven == true ]]
 then
     w=`echo $size | sed 's/x.*//'`
