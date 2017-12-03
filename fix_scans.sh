@@ -282,7 +282,7 @@ for i in "${search_string[@]}"
     k="00$j"
     l=${k: -3}
     # echo "$dir/$bgcleandir/$output"-$l.$extension
-    convert "$i" -colorspace gray -contrast-stretch 5%,90% \( +clone -canny 0x1+10%+30% -morphology Close:3 Disk:2.5 \) -compose divide_src -composite -define png:compression-filter=1 -define png:compression-level=3 -define png:compression-strategy=0 +repage "$dir/$bgcleandir/$output"-$l.$extension 1>/dev/null
+    convert "$i" -colorspace gray -contrast-stretch 5%,90% \( +clone -lat 30x30-15% -negate \) -compose divide_src -composite -define png:compression-filter=1 -define png:compression-level=3 -define png:compression-strategy=0 +repage "$dir/$bgcleandir/$output"-$l.$extension 1>/dev/null
   #  convert "$search_string" \( +clone -blur 3 -level 10%,75% -negate -morphology dilate disk:2.5 \) -compose divide_src -composite "$dir/$bgcleandir/$output"-%03d.$extension 1>/dev/null
     ((j++))
   done
