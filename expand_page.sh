@@ -37,7 +37,7 @@ while test $# -gt 0; do
       echo "-size         Create new file at given size. Format should be:"
       echo "              <width>x<height>, where width and height are integers."
       echo "-max          Use maximum existing file dimensions for new size"
-      echo "-side <top|bottom|left|right|north|south|east|west>"
+      echo "-side <top|bottom|left|right|north|south|east|west|center>"
       echo "              Choose side to align image file. Default is top/north."
       exit 0
       ;;
@@ -81,6 +81,9 @@ case "$sidegiven" in
   right|east)
     side="east"
     ;;
+  center)
+    side="center"
+    ;;
 esac
 
 dir=`dirname "$1"`
@@ -121,7 +124,7 @@ else
         h=$(( fileh + hd * 2 ))
     fi
 fi
-# Generate unique white filename from date & time stamp
+# Generate unique bg filename from date & time stamp
 number=`date "+%Y%m%d%H%M%S"`
 finalname="$color"_$number.png
 convert -size "$w"x"$h" -background "$color" xc: "$TMPDIR$finalname"
