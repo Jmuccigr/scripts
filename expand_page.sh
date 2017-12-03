@@ -129,5 +129,5 @@ convert -size "$w"x"$h" -background "$color" xc: "$TMPDIR$finalname"
 # Create new directory & save converted files in it
 # Put existing file 5% down from the top of the background page
 # This will consistently treat final pages that are short.
-mkdir "$dir/bigger"
-cd "$dir"; ls *$finalextension | xargs -I {} convert -gravity $side -geometry +0+$hd $TMPDIR/$finalname {} -compose divide_dst -composite bigger/{}
+mkdir "$dir/resized"
+cd "$dir"; ls *$finalextension | xargs -I {} convert -gravity $side -geometry +0+$hd $TMPDIR/$finalname {} -compose divide_dst -composite resized/{}
