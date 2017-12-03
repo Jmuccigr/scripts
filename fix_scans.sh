@@ -25,7 +25,7 @@ output="$number"_output
 unpaperOptions=' --no-border-align ' # Supposed to be the default, but isn't
 
 # set up functions to report Usage and Usage with Description
-PROGNAME=`type convert | awk '{print $3}'`  # search for convert executable on path
+PROGNAME=`type $0 | awk '{print $3}'`       # search for convert executable on path
 PROGNAME=`basename $PROGNAME`               # base name of program
 
 # Read flags
@@ -266,7 +266,7 @@ then
   search_string=("$origin_dir/$output-"*)
 fi
 
-# Finally can clean the background
+# Now can clean the background
 if [[ $bgclean == true ]]
 then
   # echo 'bg search: '"$search_string"
@@ -283,10 +283,8 @@ for i in "${search_string[@]}"
     l=${k: -3}
     # echo "$dir/$bgcleandir/$output"-$l.$extension
     convert "$i" -colorspace gray -contrast-stretch 5%,90% \( +clone -lat 30x30-15% -negate \) -compose divide_src -composite -define png:compression-filter=1 -define png:compression-level=3 -define png:compression-strategy=0 +repage "$dir/$bgcleandir/$output"-$l.$extension 1>/dev/null
-  #  convert "$search_string" \( +clone -blur 3 -level 10%,75% -negate -morphology dilate disk:2.5 \) -compose divide_src -composite "$dir/$bgcleandir/$output"-%03d.$extension 1>/dev/null
     ((j++))
   done
-  # convert "$search_string" \( +clone -canny 0x1+10%+30% -morphology Close Disk:2.5 \) -compose divide_src -composite "$dir/$bgcleandir/$output"-$l.$extension 1>/dev/null
   origin_dir="$dir/$bgcleandir"
   search_string="$origin_dir/$output-"*
 fi
