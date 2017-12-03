@@ -175,7 +175,6 @@ do
   filename=`basename "$i"`
 if [[ $dpi -lt 300 ]]
   then
-    # enlarge=`echo $(( 100 * ( 1 + (299/$dpi)) ))`
     enlarge=`get_enlargement "$dpi"`
     finaldir=$workdir/final
 	# Create enlarged file for tesseract
