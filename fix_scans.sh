@@ -23,6 +23,7 @@ unpaperOptions=' --no-border-align ' # Supposed to be the default, but isn't
 resize=false
 sizegiven=false
 usemax=false
+offset="15"
 color="white"
 side="north"
 sidegiven="top"
@@ -62,6 +63,7 @@ while test $# -gt 0; do
       echo "              deskew and despeckle are always applied last."
       echo ""
       echo "-bgclean      Removes gray background color. Negatively affects images."
+      echo "-offset       Set the bgclean offset (default is 15)"
       echo "-resize       Enlarge final images so width and height are 10% larger than maximum."
       echo "              It is also set with any of the following options."
       echo "              Resizing is always applied last."
@@ -72,6 +74,8 @@ while test $# -gt 0; do
       echo "-max          Create final files at maximum existing file dimensions."
       echo "-side <top|bottom|left|right|north|south|east|west|center>"
       echo "              Choose side to align image file with new size. Default is top/north."
+      echo ""
+      echo "-crush         Apply pngcrush to compress the final files. Can be lengthy."
       echo ""
       echo "If input file does not have PDF extension, all files in same directory with"
       echo "same extension and starting character will be processed."
@@ -133,6 +137,17 @@ while test $# -gt 0; do
       unpaperOptions="$unpaperOptions --no-grayfilter --no-noisefilter "
       shift
       ;;
+    -offset)
+      shift
+      offset=$1
+      if [[ $offset == "15" ]]
+      then
+        echo ''
+        echo  -e "\a    offset already defaults to 15."
+        echo ''
+      fi
+      shift
+      ;;
     -resize)
       resize=true
       shift
@@ -159,6 +174,13 @@ while test $# -gt 0; do
       resize=true
       shift
       sidegiven=$1
+      shift
+      ;;
+    -crush)
+      crush=true
+      echo ''
+      echo  -e "\a    Crushing the files may take a while."
+      echo ''
       shift
       ;;
     *)
@@ -199,6 +221,15 @@ then
     echo ""
 fi
 
+# Throw warning when offset but no bgclean
+if [[ $offset != "15" && $bgclean == false ]]
+then
+    echo ""
+    echo -e "\a"
+    echo -e "    Setting offset without bgclean has no effect. Ignoring offset."
+    echo ""
+fi
+
 # Use file's directory for temporary files
 dir=`dirname "$1"`
 
@@ -210,6 +241,8 @@ unpaper2dir="unpaper2_$number"
 cleandir="clean_$number"
 bgcleandir="bgclean_$number"
 resizedir="resized_$number"
+crushdir="crushed_$number"
+
 
 # Each process creates its own destination directory and leaves it as the 
 # origin directory for the next process
@@ -293,13 +326,14 @@ fi
 # Now can clean the background
 if [[ $bgclean == true ]]
 then
+  j=0
   extension='png'
   mkdir "$dir/$bgcleandir"
 for i in "${search_string[@]}"
   do
     k="00$j"
     l=${k: -3}
-    convert "$i" -colorspace gray \( +clone -lat 30x30-15% -negate \) -compose divide_src -composite $pngOpts +repage "$dir/$bgcleandir/$output"-$l.$extension 1>/dev/null
+    convert "$i" -colorspace gray \( +clone -lat 30x30-$offset% -negate \) -compose divide_src -composite $pngOpts +repage "$dir/$bgcleandir/$output"-$l.$extension 1>/dev/null
     ((j++))
   done
   origin_dir="$dir/$bgcleandir"
@@ -395,4 +429,25 @@ then
     convert -gravity $side -geometry +0+$hd $TMPDIR/$finalname "$i" -compose divide_dst -composite $pngOpts "$dir/$resizedir/$output-$l.png"
     ((j++))
   done
+  origin_dir="$dir/$resizedir"
+  search_string=("$origin_dir/$output-"*".png")
+fi
+
+# pngcrush
+if [[ $crush == true ]]
+then
+#   echo "${search_string[@]}"
+  extension='png'
+  mkdir "$dir/$crushdir"
+  j=0
+  for i in "${search_string[@]}"
+  do
+    echo "$i"
+    k="00$j"
+    l=${k: -3}
+    pngcrush "$i" "$dir/$crushdir/$output-$l.png" 1>/dev/null
+    ((j++))
+  done
+  origin_dir="$dir/$crushdir"
+  search_string=("$origin_dir/$output-"*)
 fi
