@@ -22,7 +22,8 @@ while test $# -gt 0; do
   case "$1" in
     -h|--help)
       echo "A script to take all files in a directory that have the same extension"
-      echo "and increase their size by putting them on a larger canvas."
+      echo "and starting letter and increase their size by putting them"
+      echo "on a larger canvas."
       echo ""
       echo "By default the new canvas is white and the size is increased by 10% in"
       echo "both width and height. The old image is placed 5% from the top of"
@@ -94,10 +95,13 @@ if [[ finalextension != '' ]]
 then
     finalextension=".$finalextension"
 fi
+# Get first character of filename
+firstchar=`basename "$1"`
+firstchar=${firstchar:0:1}
 
 # Get max width and height
-filew=`identify -format "%w\n" "$dir"/*$finalextension | sort -rg | head -n 1`
-fileh=`identify -format "%h\n" "$dir"/*$finalextension | sort -rg | head -n 1`
+filew=`identify -format "%w\n" "$dir"/$firstchar*$finalextension | sort -rg | head -n 1`
+fileh=`identify -format "%h\n" "$dir"/$firstchar*$finalextension | sort -rg | head -n 1`
 if [[ $sizegiven == true ]]
 then
     w=`echo $size | sed 's/x.*//'`
@@ -124,6 +128,7 @@ else
         h=$(( fileh + hd * 2 ))
     fi
 fi
+
 # Generate unique bg filename from date & time stamp
 number=`date "+%Y%m%d%H%M%S"`
 finalname="$color"_$number.png
@@ -133,4 +138,4 @@ convert -size "$w"x"$h" -background "$color" xc: "$TMPDIR$finalname"
 # Put existing file 5% down from the top of the background page
 # This will consistently treat final pages that are short.
 mkdir "$dir/resized"
-cd "$dir"; ls *$finalextension | xargs -I {} convert -gravity $side -geometry +0+$hd $TMPDIR/$finalname {} -compose divide_dst -composite resized/{}
+cd "$dir"; ls $firstchar*$finalextension | xargs -I {} convert -gravity $side -geometry +0+$hd $TMPDIR/$finalname {} -compose divide_dst -composite resized/{}
