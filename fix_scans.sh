@@ -133,13 +133,20 @@ while test $# -gt 0; do
       shift
       ;;
     -bgclean)
-      bgclean=true
-      unpaperOptions="$unpaperOptions --no-grayfilter --no-noisefilter "
-      shift
+      if [[ $offset == true ]]
+      then
+        echo "No need to set -bgclean when using -offset"
+	  else
+		bgclean=true
+		unpaperOptions="$unpaperOptions --no-grayfilter --no-noisefilter "
+	  fi
+	  shift
       ;;
     -offset)
       shift
       offset=$1
+      bgclean=true
+      unpaperOptions="$unpaperOptions --no-grayfilter --no-noisefilter "
       if [[ $offset == "15" ]]
       then
         echo ''
@@ -215,8 +222,7 @@ fi
 if [[ $deskew != '' && $layout == 'double' ]]
 then
     echo ""
-    echo -e "\a"
-    echo -e "    Generally speaking deskewing a two-page layout has minimal effect."
+    echo -e "\a    Generally speaking deskewing a two-page layout has minimal effect."
     echo -e "    deskew will therefore be applied after unpaper."
     echo ""
 fi
@@ -244,7 +250,7 @@ resizedir="resized_$number"
 crushdir="crushed_$number"
 
 
-# Each process creates its own destination directory and leaves it as the 
+# Each process creates its own destination directory and leaves it as the
 # origin directory for the next process
 
 # Split out images from PDF if necessary
@@ -277,7 +283,6 @@ then
   extension='png'
   mkdir "$dir/$rotatedir"
   convert -rotate $deg $pngOpts +repage "${search_string[@]}" "$dir/$rotatedir/$output"-%03d.$extension 1>/dev/null
-  echo string: $deskew $despeckle "${search_string[@]}" "$dir/$rotatedir/$output"-%03d.$extension 1>/dev/null
   origin_dir="$dir/$rotatedir"
   search_string=("$origin_dir/$output-"*)
 fi
@@ -329,13 +334,13 @@ then
   j=0
   extension='png'
   mkdir "$dir/$bgcleandir"
-for i in "${search_string[@]}"
-  do
-    k="00$j"
-    l=${k: -3}
-    convert "$i" -colorspace gray \( +clone -lat 30x30-$offset% -negate \) -compose divide_src -composite $pngOpts +repage "$dir/$bgcleandir/$output"-$l.$extension 1>/dev/null
-    ((j++))
-  done
+  for i in "${search_string[@]}"
+	do
+	  k="00$j"
+	  l=${k: -3}
+	  convert "$i" -colorspace gray \( +clone -lat 30x30-$offset% -negate \) -compose divide_src -composite $pngOpts +repage "$dir/$bgcleandir/$output"-$l.$extension 1>/dev/null
+	  ((j++))
+	done
   origin_dir="$dir/$bgcleandir"
   search_string=("$origin_dir/$output-"*)
 fi
@@ -353,8 +358,7 @@ then
 #   else
 #     search_string="$origin_dir/$firstchar"*".$input_extension"
 #   fi
-  convert $deskew $despeckle $pngOpts +repage "${search_string[@]}" "$dir/$cleandir/$output"-%03d.$extension 1>/dev/null
-  echo string: $deskew $despeckle "${search_string[@]}" "$dir/$cleandir/$output"-%03d.$extension 1>/dev/null
+  convert $deskew $despeckle $pngOpts -depth 8 +repage "${search_string[@]}" "$dir/$cleandir/$output"-%03d.$extension 1>/dev/null
   origin_dir="$dir/$cleandir"
   search_string=("$origin_dir/$output-"*)
 fi
@@ -362,7 +366,7 @@ fi
 # Resize as final step
 if [[ $resize == true ]]
 then
-  # Set the side for alignment. Default is top/north
+# Set the side for alignment. Default is top/north
   case "$sidegiven" in
     top|north)
       side="north"
@@ -436,7 +440,6 @@ fi
 # pngcrush
 if [[ $crush == true ]]
 then
-#   echo "${search_string[@]}"
   extension='png'
   mkdir "$dir/$crushdir"
   j=0
