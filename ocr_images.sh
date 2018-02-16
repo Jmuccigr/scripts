@@ -173,6 +173,7 @@ done
 for i in "$workdir/"*".png"
 do
   filename=`basename "$i"`
+  echo $filename | sed  "s/^.*\-//" | sed "s/\..*//"
 if [[ $dpi -lt 300 ]]
   then
     enlarge=`get_enlargement "$dpi"`
@@ -192,3 +193,5 @@ done
 
 # Sleeping to avoid some unexpected terminations
 sleep 5 && pdfunite "$finaldir/"*.pdf "$origin_dir/$finalname"
+
+terminal-notifier -message "Your OCR is complete." -title "Yay!" -sound default
