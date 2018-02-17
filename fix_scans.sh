@@ -18,7 +18,7 @@ twice=false
 unpaperOptions=' --no-border-align ' # Supposed to be the default, but isn't
 resize=false
 sizegiven=false
-usemax=false
+enlarge=false
 offset='15'
 color='white'
 side='north'
@@ -156,13 +156,13 @@ while test $# -gt 0; do
       then
         echo ''
         echo  -e "\a    offset already defaults to 15."
-        echo ''
       fi
       shift
       ;;
     -resize)
       if [[ $resize == true ]]
       then
+        echo ''
         echo -e "\a    No need to set -resize when using any option that alters image size"
 	  else
         resize=true
@@ -182,9 +182,9 @@ while test $# -gt 0; do
       size=$1
       shift
       ;;
-    -max)
+    -enlarge)
       resize=true
-      usemax=true
+      enlarge=true
       shift
       ;;
     -side)
@@ -197,7 +197,6 @@ while test $# -gt 0; do
       crush=true
       echo ''
       echo  -e "\a    Crushing the files may take a while."
-      echo ''
       shift
       ;;
     *)
@@ -234,7 +233,6 @@ then
     echo ""
     echo -e "\a    Generally speaking deskewing a two-page layout has minimal effect."
     echo -e "    deskew will therefore be applied after unpaper."
-    echo ""
 fi
 
 # Throw warning when offset but no bgclean
@@ -243,7 +241,6 @@ then
     echo ""
     echo -e "\a"
     echo -e "    Setting offset without bgclean has no effect. Ignoring offset."
-    echo ""
 fi
 
 # Use file's directory for temporary files
@@ -277,12 +274,8 @@ then
 else
   extension=$input_extension
   origin_dir="$dir"
-#  origin_dir=`echo "$dir" | sed "s/ /\\\\\ /g"`
-#  workingdir=''
   firstchar=`basename "$1"`
   firstchar=${firstchar:0:1}
-  search_string_prefix="$origin_dir/$firstchar"
-  search_string_suffix=".$input_extension"
   search_string=("$origin_dir/$firstchar"*".$input_extension")
 fi
 
@@ -400,32 +393,32 @@ then
   esac
 
   # Get max width and height
-  filew=`identify -format "%w\n" "$search_string" | sort -rg | head -n 1`
-  fileh=`identify -format "%h\n" "$search_string" | sort -rg | head -n 1`
+  filew=`identify -format "%w\n" "${search_string[@]}" | sort -rg | head -n 1`
+  fileh=`identify -format "%h\n" "${search_string[@]}" | sort -rg | head -n 1`
   if [[ $sizegiven == true ]]
   then
       w=`echo $size | sed 's/x.*//'`
       h=`echo $size | sed 's/.*x//'`
       if [[ w -lt filew ]]
       then
-          echo -e "\aWarning: entered width is less than the original files'. Aborting."
-          exit 0
+        echo -e "\aWarning: entered width is less than the original files'. Aborting."
+        exit 0
       fi
       if [[ h -lt fileh ]]
       then
-          echo -e "\aWarning: entered height is less than the original files'. Aborting."
-          exit 0
+        echo -e "\aWarning: entered height is less than the original files'. Aborting."
+        exit 0
       fi
   else
-      if [[ $usemax == true ]]
+      if [[ $enlarge == true ]]
       then
-          w=$filew
-          h=$fileh
+        wd=$(( filew / 20 ))
+        hd=$(( fileh / 20 ))
+        w=$(( filew + wd * 2 ))
+        h=$(( fileh + hd * 2 ))
       else
-          wd=$(( filew / 20 ))
-          hd=$(( fileh / 20 ))
-          w=$(( filew + wd * 2 ))
-          h=$(( fileh + hd * 2 ))
+        w=$filew
+        h=$fileh
       fi
   fi
 
