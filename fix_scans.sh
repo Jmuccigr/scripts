@@ -15,20 +15,20 @@ layout=''
 outputFormat=' -png '
 rotate=false
 twice=false
-number=$RANDOM
-number="0000$number"
-number=${number: -5}
-output="$number"_output
 unpaperOptions=' --no-border-align ' # Supposed to be the default, but isn't
 resize=false
 sizegiven=false
 usemax=false
-offset="15"
-color="white"
-side="north"
-sidegiven="top"
-pngOpts=" "
+offset='15'
+color='white'
+side='north'
+sidegiven=''
+pngOpts=' '
 #pngOpts=" -define png:compression-filter=1 -define png:compression-level=3 -define png:compression-strategy=0 "
+number=$RANDOM
+number="0000$number"
+number=${number: -5}
+output="$number"_output
 
 # set up functions to report Usage and Usage with Description
 PROGNAME=`type $0 | awk '{print $3}'`       # search for convert executable on path
@@ -56,6 +56,8 @@ while test $# -gt 0; do
       echo "-double       Process input file with unpaper at two pages per image."
       echo "-twice        Process twice with unpaper (also sets -double)."
       echo "-deskew       Applies imagemagick's deskew command at 40% & trims the result."
+      echo "              Since images will now differ in size, resizing is turned on, too."
+      echo "              See the resizing options below."
       echo "-skewy        Applies deskew twice for images that are heavily skewed."
       echo "              Also trims to remove large borders."
       echo "-despeckle    Applies imagemagick's despeckle command."
@@ -101,6 +103,7 @@ while test $# -gt 0; do
       op=2
       layout='double'
       outputFormat=''
+      resize=true
       shift
       ;;
     -single)
@@ -122,10 +125,12 @@ while test $# -gt 0; do
       ;;
     -deskew)
       deskew=' -deskew 40% '
+      resize=true
       shift
       ;;
     -skewy)
       deskew=' -deskew 40% -deskew 40% -fuzz 2% -trim '
+      resize=true
       shift
       ;;
     -despeckle)
@@ -156,7 +161,12 @@ while test $# -gt 0; do
       shift
       ;;
     -resize)
-      resize=true
+      if [[ $resize == true ]]
+      then
+        echo -e "\a    No need to set -resize when using any option that alters image size"
+	  else
+        resize=true
+	  fi
       shift
       ;;
     -color)
@@ -306,15 +316,15 @@ then
 	input_name=${input_name%%.*}
 	if [[ $twice = true ]]
 	then
-	  unpaper $unpaperOptions -l $layout -op 1 "$i" "$dir/$unpaper2dir/$input_name".pgm
-	  unpaper $unpaperOptions -l $layout -op 2 "$dir/$unpaper2dir/$input_name".pgm "$dir/$unpaperdir/$output-$l-%03d".pgm
+	  unpaper $unpaperOptions -l $layout -op 1 "$i" "$dir/$unpaper2dir/$input_name".pgm 1>/dev/null
+	  unpaper $unpaperOptions -l $layout -op 2 "$dir/$unpaper2dir/$input_name".pgm "$dir/$unpaperdir/$output-$l-%03d".pgm 1>/dev/null
 	else
 	  if [[ $op -eq 1 ]]
 	  then
 	    # Keep the same file name when image has a single page on it
-        unpaper $unpaperOptions -l $layout -op $op "$i" "$dir/$unpaperdir/$output-$l".pgm
+        unpaper $unpaperOptions -l $layout -op $op "$i" "$dir/$unpaperdir/$output-$l".pgm 1>/dev/null
       else
-        unpaper $unpaperOptions -l $layout -op $op "$i" "$dir/$unpaperdir/$output-$l"-%03d.pgm
+        unpaper $unpaperOptions -l $layout -op $op "$i" "$dir/$unpaperdir/$output-$l"-%03d.pgm 1>/dev/null
 	  fi
 	fi
     ((j++))
@@ -366,6 +376,10 @@ fi
 # Resize as final step
 if [[ $resize == true ]]
 then
+  if [[ $sidegiven == '' ]]
+  then
+    sidegiven='top'
+  fi
 # Set the side for alignment. Default is top/north
   case "$sidegiven" in
     top|north)
