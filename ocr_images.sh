@@ -2,7 +2,7 @@
 #
 # OCR images of text and combine result into PDF
 #
-# 1. Make sure they're png, otherwise convert
+# 1. If they're not 1-bit, make sure they're png, otherwise convert
 # 2. If size is too small for tesseract, enlarge
 # 3. Create OCR and output to PDF with tesseract
 #    For enlarged files, create blank version with text
@@ -141,8 +141,6 @@ workdir="$tempdir$number"_tesseract
 finaldir=$workdir
 
 mkdir $workdir
-mkdir $workdir/big
-mkdir $workdir/final
 
 # Check for language. Easy to forget to specify.
 # Needs some error checking
@@ -176,6 +174,8 @@ do
   echo $filename | sed  "s/^.*\-//" | sed "s/\..*//"
 if [[ $dpi -lt 300 ]]
   then
+    mkdir $workdir/big
+    mkdir $workdir/final
     enlarge=`get_enlargement "$dpi"`
     finaldir=$workdir/final
 	# Create enlarged file for tesseract
