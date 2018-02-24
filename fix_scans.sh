@@ -4,7 +4,7 @@
 #
 # 1. Extract images from PDF, if necessary
 # 2. Use unpaper process with imagemagick
-# 4. Stop here to manually check the files
+# 3. Stop here to manually check the files
 
 j=0
 bgclean=false
@@ -66,7 +66,7 @@ while test $# -gt 0; do
       echo ""
       echo "-bgclean      Removes gray background color. Negatively affects images."
       echo "-offset       Set the bgclean offset (default is 15)"
-      echo "-resize       Enlarge final images so width and height are 10% larger than maximum."
+      echo "-enlarge      Enlarge final images so width and height are 10% larger than maximum."
       echo "              It is also set with any of the following options."
       echo "              Resizing is always applied last."
       echo "-color        Set the background color when resizing. Default is white."
@@ -422,11 +422,6 @@ then
       fi
   fi
 
-  # Generate unique bg filename from date & time stamp
-  number=`date "+%Y%m%d%H%M%S"`
-  finalname="$color"_$number.png
-  convert -size "$w"x"$h" -background "$color" xc: "$TMPDIR$finalname"
-
   # Create new directory & save converted files in it
   # Put existing file 5% down from the top of the background page by default
   # This will consistently treat final pages that are short.
@@ -436,8 +431,7 @@ then
   do
     k="00$j"
     l=${k: -3}
-    #cd "$dir"
-    convert -gravity $side -geometry +0+$hd $TMPDIR/$finalname "$i" -compose divide_dst -composite $pngOpts "$dir/$resizedir/$output-$l.png"
+    convert \( -size "$w"x"$h" -background "$color"  xc: -write mpr:bgimage +delete \) mpr:bgimage -gravity $side -geometry +0+$hd  "$i" -compose divide_dst -composite $pngOpts "$dir/$resizedir/$output-$l.png"
     ((j++))
   done
   origin_dir="$dir/$resizedir"
