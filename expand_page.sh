@@ -10,6 +10,8 @@ usemax=false
 color="white"
 side="north"
 sidegiven="top"
+ext=""
+format=""
 
 # Read flags
 # Provide help if no argument
@@ -60,6 +62,15 @@ while test $# -gt 0; do
     -side)
       shift
       sidegiven=$1
+      shift
+      ;;
+    -png)
+      ext='.png'
+      shift
+      ;;
+    -ccit)
+      ext='.tiff'
+      format=' -alpha off -monochrome -compress fax '
       shift
       ;;
     *)
@@ -129,13 +140,9 @@ else
     fi
 fi
 
-# Generate unique bg filename from date & time stamp
-number=`date "+%Y%m%d%H%M%S"`
-finalname="$color"_$number.png
-convert -size "$w"x"$h" -background "$color" xc: "$TMPDIR$finalname"
-
 # Create new directory & save converted files in it
 # Put existing file 5% down from the top of the background page
 # This will consistently treat final pages that are short.
 mkdir "$dir/resized"
-cd "$dir"; ls $firstchar*$finalextension | xargs -I {} convert -gravity $side -geometry +0+$hd $TMPDIR/$finalname {} -compose divide_dst -composite resized/{}
+cd "$dir"
+ls $firstchar*$finalextension | xargs -I {} convert \( -size "$w"x"$h" -background "$color" xc: -write mpr:bgimage +delete \) -gravity $side -geometry +0+$hd mpr:bgimage {} -compose divide_dst $format -composite "resized/{}$ext"
