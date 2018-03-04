@@ -3,7 +3,7 @@
 # Extract and clean up scans of articles, text-only
 #
 # 1. Extract images from PDF, if necessary
-# 2. Use unpaper process with imagemagick
+# 2. Use unpaper & process with imagemagick
 # 3. Stop here to manually check the files
 
 j=0
@@ -13,12 +13,14 @@ deskew=''
 despeckle=''
 layout=''
 outputFormat=' -png '
+extension='png'
 rotate=false
 twice=false
 unpaperOptions=' --no-border-align ' # Supposed to be the default, but isn't
 resize=false
 sizegiven=false
 enlarge=false
+ccit=''
 offset='15'
 color='white'
 side='north'
@@ -102,14 +104,14 @@ while test $# -gt 0; do
       fi
       op=2
       layout='double'
-      outputFormat=''
+#     outputFormat=''
       resize=true
       shift
       ;;
     -single)
       op=1
       layout='single'
-      outputFormat=''
+#     outputFormat=''
       shift
       ;;
     -twice)
@@ -121,7 +123,7 @@ while test $# -gt 0; do
       fi
       op=2
       layout='double'
-      outputFormat=''
+#     outputFormat=''
       ;;
     -deskew)
       deskew=' -deskew 40% '
@@ -169,12 +171,6 @@ while test $# -gt 0; do
 	  fi
       shift
       ;;
-    -color)
-      resize=true
-      shift
-      color=$1
-      shift
-      ;;
     -size)
       resize=true
       sizegiven=true
@@ -182,9 +178,19 @@ while test $# -gt 0; do
       size=$1
       shift
       ;;
+    -max)
+      resize=true
+      shift
+      ;;
     -enlarge)
       resize=true
       enlarge=true
+      shift
+      ;;
+    -color)
+      resize=true
+      shift
+      color=$1
       shift
       ;;
     -side)
@@ -256,7 +262,6 @@ bgcleandir="bgclean_$number"
 resizedir="resized_$number"
 crushdir="crushed_$number"
 
-
 # Each process creates its own destination directory and leaves it as the
 # origin directory for the next process
 
@@ -269,7 +274,6 @@ then
   input=`ls "$dir/$convertdir/$output"* | head -n 1`
   extension="${input##*.}"
   origin_dir="$dir/$convertdir"
-#  workingdir="$convertdir"
   search_string=("$origin_dir/$output-"*)
 else
   extension=$input_extension
@@ -279,11 +283,29 @@ else
   search_string=("$origin_dir/$firstchar"*".$input_extension")
 fi
 
+# Throw warning when bitdepth is 2, but certain options were entered
+bitdepth=$(identify -format "%k" "$search_string")
+if [[ $bitdepth == '2' ]]
+then
+  extension='tiff'
+  ccit=' -alpha off -monochrome -compress Group4 -quality 100 '
+  if [[ $bgclean == true ]]
+  then
+	echo -e "\a    Can't clean background on 1-bit images. Ignoring bgclean."
+	bglcean=false
+  fi
+  if [[ $crush == true ]]
+  then
+	echo -e "\a    1-bit images are not saved as png. Ignoring crush."
+	crush=false
+  fi
+fi
+
 # rotate
 if [[ $rotate == true ]]
 then
   # echo "${search_string[@]}"
-  extension='png'
+  # extension='png'
   mkdir "$dir/$rotatedir"
   convert -rotate $deg $pngOpts +repage "${search_string[@]}" "$dir/$rotatedir/$output"-%03d.$extension 1>/dev/null
   origin_dir="$dir/$rotatedir"
@@ -335,7 +357,7 @@ fi
 if [[ $bgclean == true ]]
 then
   j=0
-  extension='png'
+  # extension='png'
   mkdir "$dir/$bgcleandir"
   for i in "${search_string[@]}"
 	do
@@ -352,16 +374,9 @@ fi
 if [[ $deskew != '' || $despeckle != '' ]]
 then
   # echo "${search_string[@]}"
-  extension='png'
+  # extension='png'
   mkdir "$dir/$cleandir"
-#  workingdir="$cleandir"
-#   if [[ $input_extension == 'pdf' ]]
-#   then
-#     search_string="$origin_dir/$output-"*
-#   else
-#     search_string="$origin_dir/$firstchar"*".$input_extension"
-#   fi
-  convert $deskew $despeckle $pngOpts -depth 8 +repage "${search_string[@]}" "$dir/$cleandir/$output"-%03d.$extension 1>/dev/null
+  convert $deskew $despeckle $pngOpts -depth $bitdepth $ccit +repage "${search_string[@]}" "$dir/$cleandir/$output"-%03d.$extension 1>/dev/null
   origin_dir="$dir/$cleandir"
   search_string=("$origin_dir/$output-"*)
 fi
@@ -373,7 +388,7 @@ then
   then
     sidegiven='top'
   fi
-# Set the side for alignment. Default is top/north
+  # Set the side for alignment. Default is top/north
   case "$sidegiven" in
     top|north)
       side="north"
@@ -416,7 +431,7 @@ then
         hd=$(( fileh / 20 ))
         w=$(( filew + wd * 2 ))
         h=$(( fileh + hd * 2 ))
-      else
+      else # max must have been entered
         w=$filew
         h=$fileh
       fi
@@ -431,11 +446,11 @@ then
   do
     k="00$j"
     l=${k: -3}
-    convert \( -size "$w"x"$h" -background "$color"  xc: -write mpr:bgimage +delete \) mpr:bgimage -gravity $side -geometry +0+$hd  "$i" -compose divide_dst -composite $pngOpts "$dir/$resizedir/$output-$l.png"
+    convert \( -size "$w"x"$h" -background "$color" xc: -write mpr:bgimage +delete \) mpr:bgimage -gravity $side -geometry +0+$hd "$i" -compose divide_dst -composite $pngOpts $ccit "$dir/$resizedir/$output-$l.$extension"
     ((j++))
   done
   origin_dir="$dir/$resizedir"
-  search_string=("$origin_dir/$output-"*".png")
+  search_string=("$origin_dir/$output-"*".$extension")
 fi
 
 # pngcrush
