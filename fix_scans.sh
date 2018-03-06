@@ -7,6 +7,7 @@
 # 3. Stop here to manually check the files
 
 j=0
+startpage=1
 bgclean=false
 deg=0
 deskew=''
@@ -21,6 +22,7 @@ resize=false
 sizegiven=false
 enlarge=false
 ccit=''
+threshold='80%'
 offset='15'
 color='white'
 side='north'
@@ -51,33 +53,40 @@ while test $# -gt 0; do
       echo "Clean up scans of text-only articles. Careful use might work with images too."
       echo ""
       echo "options:"
-      echo "-h, --help    Show this brief help."
-      echo "-rotate <deg> Rotate input file stated degrees clockwise."
-      echo "-single       Process input file with unpaper at one page per image."
-      echo "              This will eliminate the right-hand page if there are two."
-      echo "-double       Process input file with unpaper at two pages per image."
-      echo "-twice        Process twice with unpaper (also sets -double)."
-      echo "-deskew       Applies imagemagick's deskew command at 40% & trims the result."
-      echo "              Since images will now differ in size, resizing is turned on, too."
-      echo "              See the resizing options below."
-      echo "-skewy        Applies deskew twice for images that are heavily skewed."
-      echo "              Also trims to remove large borders."
-      echo "-despeckle    Applies imagemagick's despeckle command."
+      echo "-h, --help     Show this brief help."
+      echo "-f <X>         First processed page of PDF will be X. Does nothing on non-PDF."
+      echo "-ccit          Convert image to 1-bit."
+      echo "-threshold <%> Percentage to apply to creating 1-bit images."
+      echo "               Defaults to 80%."
       echo ""
-      echo "              deskew and despeckle are always applied last."
+      echo "-rotate <deg>  Rotate input file stated degrees clockwise."
+      echo "-single        Process input file with unpaper at one page per image."
+      echo "               This will eliminate the right-hand page if there are two."
+      echo "-double        Process input file with unpaper at two pages per image."
+      echo "-twice         Process twice with unpaper (also sets -double)."
+      echo "-deskew        Applies imagemagick's deskew command at 40% & trims the result."
+      echo "               Since images will now differ in size, resizing is turned on, too."
+      echo "               See the resizing options below."
+      echo "-skewy         Applies deskew twice for images that are heavily skewed."
+      echo "               Also trims to remove large borders."
+      echo "-despeckle     Applies imagemagick's despeckle command."
       echo ""
-      echo "-bgclean      Removes gray background color. Negatively affects images."
-      echo "-offset       Set the bgclean offset (default is 15)"
-      echo "-enlarge      Enlarge final images so width and height are 10% larger than maximum."
-      echo "              It is also set with any of the following options."
-      echo "              Resizing is always applied last."
-      echo "-color        Set the background color when resizing. Default is white."
-      echo "              Surround numeric colors by quotation marks, e.g., \"#444\"."
-      echo "-size         Create final files at given size. Format should be:"
-      echo "              <width>x<height>, where width and height are integers."
-      echo "-max          Create final files at maximum existing file dimensions."
+      echo "               deskew and despeckle are always applied last."
+      echo ""
+      echo "-bgclean       Removes gray background color. Negatively affects images."
+      echo "-offset        Set the bgclean offset (default is 15)"
+      echo "-enlarge       Enlarge final images so width and height are 10% larger than maximum."
+      echo "               It is also set with any of the following options."
+      echo "               Resizing is always applied last."
+      echo "-color         Set the background color when resizing. Default is white."
+      echo "               Surround numeric colors by quotation marks, e.g., \"#444\"."
+      echo "-size          Create final files at given size. Format should be:"
+      echo "               <width>x<height>, where width and height are integers."
+      echo "-max           Create final files at maximum existing file dimensions."
       echo "-side <top|bottom|left|right|north|south|east|west|center>"
-      echo "              Choose side to align image file with new size. Default is top/north."
+      echo "               Choose side to align image file with new size. Default is top/north."
+      echo ""
+      echo "-recenter      Center the printed area left-right in the final output."
       echo ""
       echo "-crush         Apply pngcrush to compress the final files. Can be lengthy."
       echo ""
@@ -90,6 +99,26 @@ while test $# -gt 0; do
       echo ""
       echo "NB Check quality of output files before proceeding to OCR."
       exit 0
+      ;;
+    -f)
+      shift
+      startpage=$1
+      re="^[0-9]+$"
+	  if ! [[ $startpage =~ $re ]]
+	  then
+		echo -e "\a    First page is not a positive integer. Using 1." >&2
+		startpage=1
+	  fi
+      shift
+      ;;
+    -ccit)
+      ccit=" -threshold $threshold -alpha off -monochrome -compress Group4 -quality 100 "
+      shift
+      ;;
+    -threshold)
+      shift
+      threshold=$1
+      shift
       ;;
     -rotate)
       shift
@@ -199,6 +228,10 @@ while test $# -gt 0; do
       sidegiven=$1
       shift
       ;;
+    -recenter)
+      recenter=true
+      shift
+      ;;
     -crush)
       crush=true
       echo ''
@@ -225,7 +258,7 @@ then
 fi
 
 # Throw warning when nothing to be done
-if [[ $input_extension != 'pdf' && $layout == '' && $deskew == '' && $despeckle == '' && $bgclean == false && $rotate == false && $resize == false ]]
+if [[ $input_extension != 'pdf' && $layout == '' && $deskew == '' && $despeckle == '' && $bgclean == false && $rotate == false && $resize == false && $crush == false && $ccit == false ]]
 then
     echo ''
     echo  -e "\a    Oops! Nothing will happen to non-PDF files unless some processing is specified."
@@ -253,12 +286,14 @@ fi
 dir=`dirname "$1"`
 
 # Set up working directories
+ccitdir="ccit_$number"
 rotatedir="rotated_$number"
 convertdir="convert_$number"
 unpaperdir="unpaper_$number"
 unpaper2dir="unpaper2_$number"
 cleandir="clean_$number"
 bgcleandir="bgclean_$number"
+recenterdir="recentered_$number"
 resizedir="resized_$number"
 crushdir="crushed_$number"
 
@@ -268,8 +303,29 @@ crushdir="crushed_$number"
 # Split out images from PDF if necessary
 if [[ $input_extension == 'pdf' ]]
 then
+  # Check page count
+  pdf_page_count=$(pdfinfo "$1" | grep Pages: | sed -E 's/.*([0-9]+).*/\1/')
+  if [[ $startpage > $pdf_page_count ]]
+  then
+    echo -e "\a    First page is greater than number of pages in PDF. Aborting."
+    exit 0
+  fi
+  # Compare page count with image count in PDF
+  image_pages=$(pdfimages -list "$1" | grep -E [0-9] | sed -E "s/([0-9]+).*/\1/g" | perl -pe "s/\n/ /g" | perl -pe "s/\s+/  /g")
+  startpage_adj=`expr $startpage - 1`
+  remaining_page_count=`expr $pdf_page_count - $startpage + 1`
+  for i in `seq 0 $startpage_adj`
+  do
+	image_pages=$(echo "$image_pages" | perl -pe "s/ $i /  /g")
+  done
+  image_page_array=($image_pages)
+  remaining_image_count=${#image_page_array[@]}
+  if [[ $remaining_page_count != $remaining_image_count ]]
+  then
+	echo -e "\a    There are more images than pages. Check the output."
+  fi
   mkdir "$dir/$convertdir"
-  pdfimages $outputFormat "$1" "$dir/$convertdir/$output"
+  pdfimages -f $startpage $outputFormat "$1" "$dir/$convertdir/$output"
   # Get filetype that was output
   input=`ls "$dir/$convertdir/$output"* | head -n 1`
   extension="${input##*.}"
@@ -283,12 +339,12 @@ else
   search_string=("$origin_dir/$firstchar"*".$input_extension")
 fi
 
-# Throw warning when bitdepth is 2, but certain options were entered
+# Throw warning when bitdepth is 1, but certain options were entered
 bitdepth=$(identify -format "%k" "$search_string")
-if [[ $bitdepth == '2' ]]
+if [[ $bitdepth == '1' || $ccit != "" ]]
 then
   extension='tiff'
-  ccit=' -alpha off -monochrome -compress Group4 -quality 100 '
+  ccit=" -threshold $threshold -alpha off -monochrome -compress Group4 -quality 100 "
   if [[ $bgclean == true ]]
   then
 	echo -e "\a    Can't clean background on 1-bit images. Ignoring bgclean."
@@ -299,6 +355,15 @@ then
 	echo -e "\a    1-bit images are not saved as png. Ignoring crush."
 	crush=false
   fi
+fi
+
+# ccit
+if [[ $ccit != '' ]]
+then
+  mkdir "$dir/$ccitdir"
+  convert "${search_string[@]}" $ccit "$dir/$ccitdir/$output"-%03d.$extension 1>/dev/null
+  origin_dir="$dir/$ccitdir"
+  search_string=("$origin_dir/$output-"*)
 fi
 
 # rotate
@@ -381,7 +446,7 @@ then
   search_string=("$origin_dir/$output-"*)
 fi
 
-# Resize as final step
+# Resize
 if [[ $resize == true ]]
 then
   if [[ $sidegiven == '' ]]
@@ -451,6 +516,30 @@ then
   done
   origin_dir="$dir/$resizedir"
   search_string=("$origin_dir/$output-"*".$extension")
+fi
+
+# recenter
+if [[ $recenter == true ]]
+then
+  mkdir "$dir/$recenterdir"
+  for i in "${search_string[@]}"
+  do
+    k="00$j"
+    l=${k: -3}
+	# Replace the edges to catch minor defects there, then capture printed area
+	orig_dim=($(convert "$i" -shave 10x10 -bordercolor white -border 10x10 -blur 0,8 -normalize -fuzz 2% -trim -format "%W %H %X %Y %w" info:))
+	w=${orig_dim[0]}
+	h=${orig_dim[1]}
+	x=${orig_dim[2]}
+	y=${orig_dim[3]}
+	new_w=${orig_dim[4]}
+	x_dis=$(( (w - new_w) / 2))
+	## Grab printed area and center it on white background
+	convert \( -size "$w"x$h -background white xc: -write mpr:bgimage +delete \) mpr:bgimage \( -crop "$w"x$h+$x+$y "$i" \) -compose divide_dst -gravity northwest -geometry +$x_dis$y -composite $ccit "$dir/$recenterdir/$output-$l.$extension"
+    ((j++))
+  done
+  origin_dir="$dir/$recenterdir"
+  search_string=("$origin_dir/$output-"*)
 fi
 
 # pngcrush
