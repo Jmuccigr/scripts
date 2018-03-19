@@ -58,7 +58,6 @@ while test $# -gt 0; do
       echo "-ccit          Convert image to 1-bit."
       echo "-threshold <%> Percentage to apply to creating 1-bit images."
       echo "               Defaults to 80%."
-      echo ""
       echo "-rotate <deg>  Rotate input file stated degrees clockwise."
       echo "-single        Process input file with unpaper at one page per image."
       echo "               This will eliminate the right-hand page if there are two."
@@ -70,9 +69,6 @@ while test $# -gt 0; do
       echo "-skewy         Applies deskew twice for images that are heavily skewed."
       echo "               Also trims to remove large borders."
       echo "-despeckle     Applies imagemagick's despeckle command."
-      echo ""
-      echo "               deskew and despeckle are always applied last."
-      echo ""
       echo "-bgclean       Removes gray background color. Negatively affects images."
       echo "-offset        Set the bgclean offset (default is 15)"
       echo "-enlarge       Enlarge final images so width and height are 10% larger than maximum."
@@ -85,9 +81,7 @@ while test $# -gt 0; do
       echo "-max           Create final files at maximum existing file dimensions."
       echo "-side <top|bottom|left|right|north|south|east|west|center>"
       echo "               Choose side to align image file with new size. Default is top/north."
-      echo ""
       echo "-recenter      Center the printed area left-right in the final output."
-      echo ""
       echo "-crush         Apply pngcrush to compress the final files. Can be lengthy."
       echo ""
       echo "If input file does not have PDF extension, all files in same directory with"
@@ -169,7 +163,7 @@ while test $# -gt 0; do
       shift
       ;;
     -bgclean)
-      if [[ $offset == true ]]
+      if [[ $offset != "15" ]]
       then
         echo "No need to set -bgclean when using -offset"
 	  else
@@ -181,8 +175,13 @@ while test $# -gt 0; do
     -offset)
       shift
       offset=$1
-      bgclean=true
-      unpaperOptions="$unpaperOptions --no-grayfilter --no-noisefilter "
+      if [[ $bgclean == true ]]
+      then
+        echo "No need to set -bgclean when using -offset"
+	  else
+		bgclean=true
+		unpaperOptions="$unpaperOptions --no-grayfilter --no-noisefilter "
+	  fi
       if [[ $offset == "15" ]]
       then
         echo ''
@@ -348,22 +347,13 @@ then
   if [[ $bgclean == true ]]
   then
 	echo -e "\a    Can't clean background on 1-bit images. Ignoring bgclean."
-	bglcean=false
+	bgclean=false
   fi
   if [[ $crush == true ]]
   then
 	echo -e "\a    1-bit images are not saved as png. Ignoring crush."
 	crush=false
   fi
-fi
-
-# ccit
-if [[ $ccit != '' ]]
-then
-  mkdir "$dir/$ccitdir"
-  convert "${search_string[@]}" $ccit "$dir/$ccitdir/$output"-%03d.$extension 1>/dev/null
-  origin_dir="$dir/$ccitdir"
-  search_string=("$origin_dir/$output-"*)
 fi
 
 # rotate
@@ -446,6 +436,15 @@ then
   search_string=("$origin_dir/$output-"*)
 fi
 
+# ccit
+if [[ $ccit != '' ]]
+then
+  mkdir "$dir/$ccitdir"
+  convert "${search_string[@]}" $ccit "$dir/$ccitdir/$output"-%03d.$extension 1>/dev/null
+  origin_dir="$dir/$ccitdir"
+  search_string=("$origin_dir/$output-"*)
+fi
+
 # Resize
 if [[ $resize == true ]]
 then
@@ -473,8 +472,9 @@ then
   esac
 
   # Get max width and height
-  filew=`identify -format "%w\n" "${search_string[@]}" | sort -rg | head -n 1`
-  fileh=`identify -format "%h\n" "${search_string[@]}" | sort -rg | head -n 1`
+  filewxh=`convert -ping +repage -layers trim-bounds -delete 1--1 -format %P "${search_string[@]}" info:`
+  filew=`echo $filewxh | sed 's/x.*//'`
+  fileh=`echo $filewxh | sed 's/.*x//'`
   if [[ $sizegiven == true ]]
   then
       w=`echo $size | sed 's/x.*//'`
