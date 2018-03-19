@@ -111,8 +111,10 @@ firstchar=`basename "$1"`
 firstchar=${firstchar:0:1}
 
 # Get max width and height
-filew=`identify -format "%w\n" "$dir"/$firstchar*$finalextension | sort -rg | head -n 1`
-fileh=`identify -format "%h\n" "$dir"/$firstchar*$finalextension | sort -rg | head -n 1`
+filewxh=`convert -ping +repage -layers trim-bounds -delete 1--1 -format %P "$dir/$firstchar*$finalextension" info:`
+filew=`echo $filewxh | sed 's/x.*//'`
+fileh=`echo $filewxh | sed 's/.*x//'`
+
 if [[ $sizegiven == true ]]
 then
     w=`echo $size | sed 's/x.*//'`
