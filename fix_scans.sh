@@ -340,15 +340,16 @@ fi
 
 # Throw warning when bitdepth is 1, but certain options were entered
 bitdepth=$(identify -format "%k" "$search_string")
+if [[ $bitdepth == '1' && $bgclean == true ]]
+then
+  echo -e "\a    Can't clean background on 1-bit images. Ignoring bgclean."
+  bgclean=false
+fi
+
 if [[ $bitdepth == '1' || $ccit != "" ]]
 then
   extension='tiff'
   ccit=" -threshold $threshold -alpha off -monochrome -compress Group4 -quality 100 "
-  if [[ $bgclean == true ]]
-  then
-	echo -e "\a    Can't clean background on 1-bit images. Ignoring bgclean."
-	bgclean=false
-  fi
   if [[ $crush == true ]]
   then
 	echo -e "\a    1-bit images are not saved as png. Ignoring crush."
@@ -522,6 +523,7 @@ fi
 if [[ $recenter == true ]]
 then
   mkdir "$dir/$recenterdir"
+  j=0
   for i in "${search_string[@]}"
   do
     k="00$j"
