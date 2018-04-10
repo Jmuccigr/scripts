@@ -63,6 +63,7 @@ while test $# -gt 0; do
       echo "               This will eliminate the right-hand page if there are two."
       echo "-double        Process input file with unpaper at two pages per image."
       echo "-twice         Process twice with unpaper (also sets -double)."
+      echo "-noclean       Do not let unpaper do its own cleaning."
       echo "-deskew        Applies imagemagick's deskew command at 40% & trims the result."
       echo "               Since images will now differ in size, resizing is turned on, too."
       echo "               See the resizing options below."
@@ -147,6 +148,15 @@ while test $# -gt 0; do
       op=2
       layout='double'
 #     outputFormat=''
+      ;;
+    -noclean)
+      if [[ $bgclean == true || $offset != "15" ]]
+      then
+        echo "No need to set -noclean when using -bgclean or -offset"
+	  else
+	    unpaperOptions="$unpaperOptions --no-grayfilter --no-noisefilter "
+      fi
+      shift
       ;;
     -deskew)
       deskew=' -deskew 40% '
@@ -303,11 +313,11 @@ crushdir="crushed_$number"
 if [[ $input_extension == 'pdf' ]]
 then
   # Check page count
-  pdf_page_count=$(pdfinfo "$1" | grep Pages: | sed -E 's/.*([0-9]+).*/\1/')
+  pdf_page_count=$(pdfinfo "$1" | grep Pages: | sed -E 's/^.* +//')
   if [[ $startpage > $pdf_page_count ]]
   then
     echo -e "\a    First page is greater than number of pages in PDF. Aborting."
-    exit 0
+    exit 1
   fi
   # Compare page count with image count in PDF
   image_pages=$(pdfimages -list "$1" | grep -E [0-9] | sed -E "s/([0-9]+).*/\1/g" | perl -pe "s/\n/ /g" | perl -pe "s/\s+/  /g")
