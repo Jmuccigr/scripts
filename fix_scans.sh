@@ -373,7 +373,7 @@ then
   # echo "${search_string[@]}"
   # extension='png'
   mkdir "$dir/$rotatedir"
-  convert -rotate $deg $pngOpts +repage "${search_string[@]}" "$dir/$rotatedir/$output"-%03d.$extension 1>/dev/null
+  magick "${search_string[@]}" -rotate $deg $pngOpts +repage "$dir/$rotatedir/$output"-%03d.$extension 1>/dev/null
   origin_dir="$dir/$rotatedir"
   search_string=("$origin_dir/$output-"*)
 fi
@@ -429,7 +429,7 @@ then
 	do
 	  k="00$j"
 	  l=${k: -3}
-	  convert "$i" -colorspace gray \( +clone -lat 30x30-$offset% -negate \) -compose divide_src -composite $pngOpts +repage "$dir/$bgcleandir/$output"-$l.$extension 1>/dev/null
+	  magick "$i" -colorspace gray \( +clone -lat 30x30-$offset% -negate \) -compose divide_src -composite $pngOpts +repage "$dir/$bgcleandir/$output"-$l.$extension 1>/dev/null
 	  ((j++))
 	done
   origin_dir="$dir/$bgcleandir"
@@ -442,7 +442,7 @@ then
   # echo "${search_string[@]}"
   # extension='png'
   mkdir "$dir/$cleandir"
-  convert $deskew $despeckle $pngOpts -depth $bitdepth $ccit +repage "${search_string[@]}" "$dir/$cleandir/$output"-%03d.$extension 1>/dev/null
+  magick "${search_string[@]}" $deskew $despeckle $pngOpts -depth $bitdepth $ccit +repage "$dir/$cleandir/$output"-%03d.$extension 1>/dev/null
   origin_dir="$dir/$cleandir"
   search_string=("$origin_dir/$output-"*)
 fi
@@ -451,7 +451,7 @@ fi
 if [[ $ccit != '' ]]
 then
   mkdir "$dir/$ccitdir"
-  convert "${search_string[@]}" $ccit "$dir/$ccitdir/$output"-%03d.$extension 1>/dev/null
+  magick "${search_string[@]}" $ccit "$dir/$ccitdir/$output"-%03d.$extension 1>/dev/null
   origin_dir="$dir/$ccitdir"
   search_string=("$origin_dir/$output-"*)
 fi
@@ -483,7 +483,7 @@ then
   esac
 
   # Get max width and height
-  filewxh=`convert -ping +repage -layers trim-bounds -delete 1--1 -format %P "${search_string[@]}" info:`
+  filewxh=`magick "${search_string[@]}" -ping +repage -layers trim-bounds -delete 1--1 -format %P  info:`
   filew=`echo $filewxh | sed 's/x.*//'`
   fileh=`echo $filewxh | sed 's/.*x//'`
   if [[ $sizegiven == true ]]
@@ -522,7 +522,7 @@ then
   do
     k="00$j"
     l=${k: -3}
-    convert \( -size "$w"x"$h" -background "$color" xc: -write mpr:bgimage +delete \) mpr:bgimage -gravity $side -geometry +0+$hd "$i" -compose divide_dst -composite $pngOpts $ccit "$dir/$resizedir/$output-$l.$extension"
+    magick \( -size "$w"x"$h" -background "$color" xc: -write mpr:bgimage +delete \) mpr:bgimage -gravity $side -geometry +0+$hd "$i" -compose divide_dst -composite $pngOpts $ccit "$dir/$resizedir/$output-$l.$extension"
     ((j++))
   done
   origin_dir="$dir/$resizedir"
@@ -539,7 +539,7 @@ then
     k="00$j"
     l=${k: -3}
 	# Replace the edges to catch minor defects there, then capture printed area
-	orig_dim=($(convert "$i" -shave 10x10 -bordercolor white -border 10x10 -blur 0,8 -normalize -fuzz 2% -trim -format "%W %H %X %Y %w" info:))
+	orig_dim=($(magick "$i" -shave 10x10 -bordercolor white -border 10x10 -blur 0,8 -normalize -fuzz 2% -trim -format "%W %H %X %Y %w" info:))
 	w=${orig_dim[0]}
 	h=${orig_dim[1]}
 	x=${orig_dim[2]}
@@ -547,7 +547,7 @@ then
 	new_w=${orig_dim[4]}
 	x_dis=$(( (w - new_w) / 2))
 	## Grab printed area and center it on white background
-	convert \( -size "$w"x$h -background white xc: -write mpr:bgimage +delete \) mpr:bgimage \( -crop "$w"x$h+$x+$y "$i" \) -compose divide_dst -gravity northwest -geometry +$x_dis$y -composite $ccit "$dir/$recenterdir/$output-$l.$extension"
+	magick \( -size "$w"x$h -background white xc: -write mpr:bgimage +delete \) mpr:bgimage \( -crop "$w"x$h+$x+$y "$i" \) -compose divide_dst -gravity northwest -geometry +$x_dis$y -composite $ccit "$dir/$recenterdir/$output-$l.$extension"
     ((j++))
   done
   origin_dir="$dir/$recenterdir"
