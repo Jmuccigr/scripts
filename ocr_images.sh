@@ -9,6 +9,10 @@
 #    to merge with original-sized images
 # 4. Combine into final PDF
 
+# For 1-bit images:
+#    output and then convert to final tiff in this way:
+#    convert imagefile -alpha off -monochrome -compress Group4 -quality 100 output.tiff
+
 # Function to get dpi for 8.5 x 11 paper size (to nearest 10)
 function get_dpi {
 	size=`identify -format "%w x %h" "$1"`
@@ -139,8 +143,10 @@ origin_dir=`dirname "$input"`
 tempdir=`echo $TMPDIR`
 workdir="$tempdir$number"_tesseract
 finaldir=$workdir
-
 mkdir $workdir
+# Create directories for enlarging if needed
+mkdir $workdir/big
+mkdir $workdir/final
 
 # Check for language. Easy to forget to specify.
 # Needs some error checking
@@ -162,7 +168,7 @@ do
   dpi=`get_dpi "$i"`
   output=`basename "$i"`
   output=${output%.*}
-  convert -units PixelsPerInch "$i" -density $dpi +repage -define png:compression-filter=1 -define png:compression-level=3 -define png:compression-strategy=0 "$workdir/$output.png"
+  magick -units PixelsPerInch "$i" -density $dpi +repage -define png:compression-filter=1 -define png:compression-level=3 -define png:compression-strategy=0 "$workdir/$output.png"
 done
 
 # Enlarge if the dpi is too small for a good tesseract reading
@@ -174,14 +180,12 @@ do
   echo $filename | sed  "s/^.*\-//" | sed "s/\..*//"
 if [[ $dpi -lt 300 ]]
   then
-    mkdir $workdir/big
-    mkdir $workdir/final
     enlarge=`get_enlargement "$dpi"`
     finaldir=$workdir/final
 	# Create enlarged file for tesseract
-	convert -resize $enlarge "$i" "$workdir/big/$filename"
+	magick "$i" -resize $enlarge "$workdir/big/$filename"
 	# Create PDF at original size
-	convert "$i" "$workdir/$filename.pdf"
+	magick "$i" "$workdir/$filename.pdf"
 	# Create text-only PDF with tesseract
     tesseract -l $lang -c textonly_pdf=1 "$workdir/big/$filename" "$workdir/big/$filename" pdf
     # Combine two PDF files for final version
