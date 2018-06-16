@@ -21,6 +21,7 @@ unpaperOptions=' --no-border-align ' # Supposed to be the default, but isn't
 resize=false
 sizegiven=false
 enlarge=false
+colorspace=''
 ccit=''
 threshold='80%'
 offset='15'
@@ -56,6 +57,7 @@ while test $# -gt 0; do
       echo "-h, --help     Show this brief help."
       echo "-f <X>         First processed page of PDF will be X. Does nothing on non-PDF."
       echo "-ccit          Convert image to 1-bit."
+      echo "-gray          Use grayscale in output."
       echo "-threshold <%> Percentage to apply to creating 1-bit images."
       echo "               Defaults to 80%."
       echo "-rotate <deg>  Rotate input file stated degrees clockwise."
@@ -110,6 +112,10 @@ while test $# -gt 0; do
       ccit=" -threshold $threshold -alpha off -monochrome -compress Group4 -quality 100 "
       shift
       ;;
+    -gray)
+      colorspace=" -colorspace gray "
+      shift
+      ;;
     -threshold)
       shift
       threshold=$1
@@ -119,6 +125,13 @@ while test $# -gt 0; do
       shift
       deg=$1
       rotate=true
+      shift
+      ;;
+    -unp)
+      op=2
+      layout='mydouble'
+      resize=true
+      recenter=true
       shift
       ;;
     -double)
@@ -291,6 +304,35 @@ then
     echo -e "    Setting offset without bgclean has no effect. Ignoring offset."
 fi
 
+# Make sure to stay gray when original is gray, if user hasn't already selected that
+if [[ $colorspace == '' ]]
+then
+  isgray=`identify -format "%r" /Users/john_muccigrosso/Desktop/becatti/images-95.ppm | grep -v gray`
+  if [[ $isgray == '' ]]
+  then
+    colorspace=" -colorspace gray "
+  fi
+fi
+
+# Throw warning when bitdepth is 1, but certain options were entered
+bitdepth=$(identify -format "%z" "$input")
+if [[ $bitdepth == '1' && $bgclean == true ]]
+then
+  echo -e "\a    Can't clean background on 1-bit images. Ignoring bgclean."
+  bgclean=false
+fi
+
+if [[ $bitdepth == '1' || $ccit != "" ]]
+then
+  extension='tiff'
+  ccit=" -threshold $threshold -alpha off -monochrome -compress Group4 -quality 100 "
+  if [[ $crush == true ]]
+  then
+	echo -e "\a    1-bit images are not saved as png. Ignoring crush."
+	crush=false
+  fi
+fi
+
 # Use file's directory for temporary files
 dir=`dirname "$1"`
 
@@ -298,6 +340,7 @@ dir=`dirname "$1"`
 ccitdir="ccit_$number"
 rotatedir="rotated_$number"
 convertdir="convert_$number"
+myunpaperdir="myunpaper_$number"
 unpaperdir="unpaper_$number"
 unpaper2dir="unpaper2_$number"
 cleandir="clean_$number"
@@ -348,24 +391,6 @@ else
   search_string=("$origin_dir/$firstchar"*".$input_extension")
 fi
 
-# Throw warning when bitdepth is 1, but certain options were entered
-bitdepth=$(identify -format "%k" "$search_string")
-if [[ $bitdepth == '1' && $bgclean == true ]]
-then
-  echo -e "\a    Can't clean background on 1-bit images. Ignoring bgclean."
-  bgclean=false
-fi
-
-if [[ $bitdepth == '1' || $ccit != "" ]]
-then
-  extension='tiff'
-  ccit=" -threshold $threshold -alpha off -monochrome -compress Group4 -quality 100 "
-  if [[ $crush == true ]]
-  then
-	echo -e "\a    1-bit images are not saved as png. Ignoring crush."
-	crush=false
-  fi
-fi
 
 # rotate
 if [[ $rotate == true ]]
@@ -373,14 +398,14 @@ then
   # echo "${search_string[@]}"
   # extension='png'
   mkdir "$dir/$rotatedir"
-  magick "${search_string[@]}" -rotate $deg $pngOpts +repage "$dir/$rotatedir/$output"-%03d.$extension 1>/dev/null
+  magick "${search_string[@]}" -rotate $deg $pngOpts -depth $bitdepth $colorspace +repage "$dir/$rotatedir/$output"-%03d.$extension 1>/dev/null
   origin_dir="$dir/$rotatedir"
   search_string=("$origin_dir/$output-"*)
 fi
 
 # First use unpaper on scans with 2 pages per image or if requested
 # Running it twice sometimes improves output
-if [[ $layout != '' ]]
+if [[ $layout != '' &&  $layout != 'mydouble' ]]
 then
   mkdir "$dir/$unpaperdir/"
   if [[ $twice == true ]]
@@ -419,6 +444,48 @@ then
   search_string=("$origin_dir/$output-"*".pgm")
 fi
 
+# My version of unpaper
+
+if [[ $layout == 'mydouble' ]]
+then
+mkdir "$dir/$myunpaperdir/"
+  j=0
+  for i in "${search_string[@]}"
+  do
+    k="00$j"
+	l=${k: -3}
+	input_name=`basename "$i"`
+	input_name=${input_name%%.*}
+
+	# Trim top & bottom, then separate sheets and get rotation for each separately
+	leftrot=$(magick "$i" -shave 0x"%[fx:h*.2]" -gravity east -chop "%[fx:w*.6]"x0 -gravity west -chop "%[fx:w*.2]"x0 -deskew 40% -format %[deskew:angle] info:)
+	rightrot=$(magick "$i" -shave 0x"%[fx:h*.2]" -gravity west -chop "%[fx:w*.6]"x0 -gravity east -chop "%[fx:w*.2]"x0 -deskew 40% -format %[deskew:angle] info:)
+
+	t="95%"
+	margin=".1"
+	remainder="90%"
+	choppct=".5"
+
+	# Cut off top and bottom, then
+	# create single row with average values of every column, then
+	# normalize and set threshold to find printed areas.
+	magick "$i" \
+	\( +clone -gravity east -chop "%[fx:w*$choppct]"x0 -rotate $leftrot \
+	-gravity center -crop "$remainder"x0+0+0 +repage \
+	-write mpr:original \
+	-set ht '%h' -resize x1! -normalize -threshold $t -morphology dilate rectangle:20x1 -morphology erode rectangle:30x1 -scale x%[ht]! \
+	mpr:original -compose screen -composite -depth 8 -write "$dir/$myunpaperdir/$output-$l"-1.png +delete \) \
+	-gravity west -chop "%[fx:w*$choppct]"x0 -rotate $rightrot \
+	-gravity center -crop "$remainder"x0+0+0 +repage \
+	-write mpr:original \
+	-set ht '%h' -resize x1! -normalize -threshold $t -morphology dilate rectangle:20x1 -morphology erode rectangle:30x1 -scale x%[ht]! \
+	mpr:original -compose screen -composite -depth 8 "$dir/$myunpaperdir/$output-$l"-2.png
+	((j++))
+  done
+  origin_dir="$dir/$myunpaperdir"
+  search_string=("$origin_dir/$output-"*".png")
+fi
+
 # Now can clean the background
 if [[ $bgclean == true ]]
 then
@@ -435,14 +502,14 @@ then
   origin_dir="$dir/$bgcleandir"
   search_string=("$origin_dir/$output-"*)
 fi
-
+echo 'three'
 # despeckle and deskew
 if [[ $deskew != '' || $despeckle != '' ]]
 then
   # echo "${search_string[@]}"
   # extension='png'
   mkdir "$dir/$cleandir"
-  magick "${search_string[@]}" $deskew $despeckle $pngOpts -depth $bitdepth $ccit +repage "$dir/$cleandir/$output"-%03d.$extension 1>/dev/null
+  magick "${search_string[@]}" $deskew $despeckle $pngOpts -depth $bitdepth $colorspace $ccit +repage "$dir/$cleandir/$output"-%03d.$extension 1>/dev/null
   origin_dir="$dir/$cleandir"
   search_string=("$origin_dir/$output-"*)
 fi
@@ -522,7 +589,7 @@ then
   do
     k="00$j"
     l=${k: -3}
-    magick \( -size "$w"x"$h" -background "$color" xc: -write mpr:bgimage +delete \) mpr:bgimage -gravity $side -geometry +0+$hd "$i" -compose divide_dst -composite $pngOpts $ccit "$dir/$resizedir/$output-$l.$extension"
+    magick \( -size "$w"x"$h" -background "$color" xc: -write mpr:bgimage +delete \) mpr:bgimage -gravity $side -geometry +0+$hd "$i" -compose divide_dst -composite $pngOpts -depth $bitdepth $colorspace $ccit "$dir/$resizedir/$output-$l.$extension"
     ((j++))
   done
   origin_dir="$dir/$resizedir"
@@ -547,7 +614,8 @@ then
 	new_w=${orig_dim[4]}
 	x_dis=$(( (w - new_w) / 2))
 	## Grab printed area and center it on white background
-	magick \( -size "$w"x$h -background white xc: -write mpr:bgimage +delete \) mpr:bgimage \( -crop "$w"x$h+$x+$y "$i" \) -compose divide_dst -gravity northwest -geometry +$x_dis$y -composite $ccit "$dir/$recenterdir/$output-$l.$extension"
+#	magick \( -size "$w"x$h -background white xc: -write mpr:bgimage +delete \) mpr:bgimage \( -crop "$w"x$h+$x+$y "$i" \) -compose divide_dst -gravity northwest -geometry +$x_dis$y -composite $ccit "$dir/$recenterdir/$output-$l.$extension"
+	magick -size "$w"x$h -background white xc: \( "$i" -crop "$w"x$h+$x+$y \) -compose divide_dst -gravity northwest -geometry +$x_dis$y -composite -depth $bitdepth $colorspace $ccit "$dir/$recenterdir/$output-$l.$extension"
     ((j++))
   done
   origin_dir="$dir/$recenterdir"
