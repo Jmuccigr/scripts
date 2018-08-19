@@ -18,9 +18,9 @@ else
     # Commit it to github when it's changed
     gitList=$(cd "$dest"; git status -s)
     gitItem=$(echo $gitList | egrep "M \"$f\"")
-    if [ ${#gitItem} -ne 0 ] 
-        then 
+    if [ ${#gitItem} -ne 0 ]
+        then
             echo "$(date +%Y-%m-%d\ %H:%M:%S) \"$f\" pushed to github" 1>&2
-            cd "$dest";git commit -m 'Automated update' "$f"
+            cd "$dest";git commit -m 'Automated update' "$f"; git push
     fi
 fi
