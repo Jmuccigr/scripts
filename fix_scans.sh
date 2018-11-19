@@ -321,7 +321,7 @@ then
 fi
 
 # Check format for JPEG
-format=`identify -format "%m\n" $input | head -n 1`
+format=`identify -format "%m\n" "$input" | head -n 1`
 if [[ $format == 'JPEG' && $png == false && $dpth != '' ]]
 then
   echo -e "\a    JPEG images must have depth of 8. Ignoring any depth setting. Use '-png' to change format."
@@ -331,7 +331,7 @@ fi
 # Make sure to stay gray when original is gray, if user hasn't already selected that
 if [[ $colorspace == '' ]]
 then
-  isgray=`identify -format "%r" $input | grep -v gray`
+  isgray=`identify -format "%r" "$input" | grep -v gray`
   if [[ $isgray == '' ]]
   then
     colorspace=" -colorspace gray "
