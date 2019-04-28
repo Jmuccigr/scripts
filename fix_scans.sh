@@ -526,12 +526,16 @@ mkdir "$dir/$myunpaperdir/"
 	\( +clone -gravity east -chop "%[fx:w*$choppct]"x0 -rotate $leftrot \
 	-gravity center -crop "$remainder"x0+0+0 +repage \
 	-write mpr:original \
-	-set ht '%h' -resize x1! -normalize -threshold $t -morphology dilate rectangle:20x1 -morphology erode rectangle:30x1 -scale x%[ht]! \
-	mpr:original -compose screen -composite -depth 8 -write "$dir/$myunpaperdir/$output-$l"-1.png +delete \) \
+	-set ht '%h' -resize x1! -normalize -threshold $t -morphology dilate rectangle:20x1 -morphology erode rectangle:30x1 \
+	-bordercolor White -border 1 -trim -fill Black -colorize 100 -background White -layers Flatten -shave 1x1 \
+	-scale x%[ht]! \
+	mpr:original -compose screen -composite -depth 8 -write "$dir/$myunpaperdir/$output-$l"-1.png +delete -compose over \) \
 	-gravity west -chop "%[fx:w*$choppct]"x0 -rotate $rightrot \
 	-gravity center -crop "$remainder"x0+0+0 +repage \
 	-write mpr:original \
-	-set ht '%h' -resize x1! -normalize -threshold $t -morphology dilate rectangle:20x1 -morphology erode rectangle:30x1 -scale x%[ht]! \
+	-set ht '%h' -resize x1! -normalize -threshold $t -morphology dilate rectangle:20x1 -morphology erode rectangle:30x1 \
+	-bordercolor White -border 1 -trim -fill Black -colorize 100 -background White -layers Flatten -shave 1x1 \
+	-scale x%[ht]! \
 	mpr:original -compose screen -composite $depthSet "$dir/$myunpaperdir/$output-$l"-2.png
 	((j++))
   done
