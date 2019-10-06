@@ -679,6 +679,30 @@ then
   search_string=("$origin_dir/$output-"*)
 fi
 
+# fix dpi to fit on letter/A4 page
+for i in "${search_string[@]}"
+do
+  # Get  width and height
+  filewxh=`magick "$i" -ping +repage -layers trim-bounds -delete 1--1 -format %P  info:`
+  filew=`echo $filewxh | sed 's/x.*//'`
+  fileh=`echo $filewxh | sed 's/.*x//'`
+  if [[ $fileh > $filew ]] # portrait mode
+  then
+	wdim=`awk "BEGIN { print $filew / 8 }"`
+	hdim=`awk "BEGIN { print $fileh / 11 }"`
+  else
+	wdim=`awk "BEGIN { print $filew / 11 }"`
+	hdim=`awk "BEGIN { print $fileh / 8 }"`
+  fi
+  if `awk "BEGIN { print $wdim > $hdim }"`
+  then
+	imagedim=$hdim
+  else
+	imagedim=$wdim
+  fi
+magick mogrify -units pixelsperinch -density $imagedim "$i" 1>/dev/null
+done
+
 # pngcrush
 if [[ $crush == true ]]
 then
