@@ -14,6 +14,7 @@
 #    convert imagefile -alpha off -monochrome -compress Group4 -quality 100 output.tiff
 
 # Function to get dpi for 8.5 x 11 paper size (to nearest 10)
+# Not quite right. Need to check ratio of sides to determine which to use.
 function get_dpi {
 	size=`magick identify -format "%w x %h" "$1"`
 	width=${size%% *}
@@ -21,19 +22,19 @@ function get_dpi {
 	if [[ $height -lt $width ]]
 	then
 	  # landscape orientation
-	  dpi=`echo $(( (width / 11 + 5 )  / 10 * 10))`
-	  h=`echo $(( 10 * height / dpi ))`
-	  maxheight=11
-	else
-	  # portrait orientation
-	  dpi=`echo $(( (height / 11 + 5 )  / 10 * 10))`
+	  dpi=`echo $(( (width * 10 / (110 + 5) ) ))`
 	  h=`echo $(( 10 * height / dpi ))`
 	  maxheight=85
+	else
+	  # portrait orientation
+	  dpi=`echo $(( (height * 10 / (110 + 5) )  ))`
+	  h=`echo $(( 10 * height / dpi ))`
+	  maxheight=110
 	fi
 	while [[ $h -gt $maxheight ]]
 	do
 	  dpi=`echo $(( dpi + 10 ))`
-	  h=`echo $(( height / dpi ))`
+	  h=`echo $(( 10 * height / dpi ))`
 	done
 	echo $dpi
 }
@@ -51,6 +52,7 @@ function get_enlargement {
 	  while [[ ! $newDPI -gt $testDPI ]]
 	  do
 		enlarge=`echo $(( $enlarge + 1 ))`
+        echo $imgDPI  $enlarge;exit 0
         newDPI=`echo $(( $imgDPI * $enlarge))`
 	  done
 	else
@@ -68,7 +70,7 @@ number=${number: -5}
 finalname=final_$number.pdf
 
 # set up functions to report Usage and Usage with Description
-PROGNAME=`type "$0" | awk '{print $3}'`     # search for convert executable on path
+PROGNAME=`type $0 | awk '{print $3}'`       # search for convert executable on path
 PROGNAME=`basename $PROGNAME`               # base name of program
 
 # Read flags
@@ -147,6 +149,7 @@ mkdir $workdir
 # Create directories for enlarging if needed
 mkdir $workdir/big
 mkdir $workdir/final
+mkdir $workdir/text
 
 # Check for language. Easy to forget to specify.
 # Needs some error checking
@@ -164,41 +167,49 @@ fi
 # OCR and save to PDF
 # Convert to correctly sized png which tesseract leaves alone when making PDF
 # Testing: don't understand why I'm converting to png here
-for i in "$origin_dir"/"$firstchar"*."$extension"
-do
-  dpi=`get_dpi "$i"`
-  output=`basename "$i"`
-#  output=${output%.*}
-  cp "$i" "$workdir/$output"
-#  magick "$i" -units PixelsPerInch -density $dpi +repage -define png:compression-filter=1 -define png:compression-level=3 -define png:compression-strategy=0 "$workdir/$output.png"
-done
+# for i in "$origin_dir"/"$firstchar"*."$extension"
+# do
+#   dpi=`get_dpi "$i"`
+#   output=`basename "$i"`
+# #  output=${output%.*}
+# #   cp "$i" "$workdir/$output"
+# #  magick "$i" -units PixelsPerInch -density $dpi +repage -define png:compression-filter=1 -define png:compression-level=3 -define png:compression-strategy=0 "$workdir/$output.png"
+# done
 
 # Enlarge if the dpi is too small for a good tesseract reading
 # A bit arbitrary to use 300 dpi as minimum. Should estimate better.
 # Make a PDF of original and combine with no-image PDF from tesseract.
 #for i in "$workdir/"*".png"
-for i in "$workdir/"*".$extension"
-do
-  # Spit out a little output for user feedback
-  filename=`basename "$i"`
-  echo $filename | sed  "s/^.*\-//" | sed "s/\..*//"
-  if [[ $dpi -lt 300 ]]
-	then
-	  enlarge=`get_enlargement "$dpi"`
+# Creating pdf with magick doesn't affect image size, so do that always,
+# then tesseract the appropriate image and merge
 	  finaldir=$workdir/final
-	  # Create enlarged file for tesseract
-	  magick "$i" -resize $enlarge "$workdir/big/$filename"
-	  # Create PDF at original size
-	  magick "$i" "$workdir/$filename.pdf"
-	  # Create text-only PDF with tesseract
-	  tesseract -l $lang -c textonly_pdf=1 "$workdir/big/$filename" "$workdir/big/$filename" pdf
+for i in "$origin_dir"/"$firstchar"*."$extension"
+do
+	# Spit out a little output for user feedback
+	filename=`basename "$i"`
+	echo $filename | sed  "s/^.*\-//" | sed "s/\..*//"
+	# Ideally files have the same size and dpi, but in case they don't, do this for each
+	dpi=`get_dpi "$i"`
+	enlarge=`get_enlargement "$dpi"`
+	# Create PDF at appropriate size
+	magick "$i" -units pixelsperinch -density $dpi "$workdir/$filename.pdf"
+if [[ $dpi -lt 300 ]]
+then
+	# Create enlarged file for tesseract
+	magick "$i" -resize $enlarge "$workdir/big/$filename"
+	# Create text-only PDF with tesseract
+	tesseract -l $lang -c textonly_pdf=1 "$workdir/big/$filename" "$workdir/text/$filename" pdf
+else
+	# Just create text-only PDF with tesseract
+	tesseract "$i" "$workdir/text/$filename" -l $lang -c textonly_pdf=1 pdf
+	# v 4 command: tesseract "$i" "$workdir/text/$filename" --dpi $dpi -l $lang -c textonly_pdf=1 pdf
+fi
 	  # Combine two PDF files for final version
-	  pdftk "$workdir/$filename.pdf" multibackground "$workdir/big/$filename.pdf" output "$finaldir/$filename.pdf"
-	else
-	  echo '1'
-	  tesseract -l $lang "$workdir/$filename" "$finaldir/$filename" pdf
-	  echo '2'
-	fi
+	  pdftk "$workdir/$filename.pdf" multibackground "$workdir/text/$filename.pdf" output "$finaldir/$filename.pdf"
+# 	else
+# 	  echo '1'
+# 	  tesseract -l $lang "$workdir/$filename" "$finaldir/$filename" pdf
+# 	  echo '2'
 done
 
 # Sleeping to avoid some unexpected terminations
