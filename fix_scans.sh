@@ -90,7 +90,7 @@ while test $# -gt 0; do
       echo "               <width>x<height>, where width and height are integers."
       echo "-max           Create final files at maximum existing file dimensions."
       echo "-side <top|bottom|left|right|north|south|east|west|center>"
-      echo "               Choose side to align image file with new size. Default is top/north."
+      echo "               Choose side to align image file with new size. Default is center."
       echo "-recenter      Center the printed area left-right in the final output."
       echo "-crush         Apply pngcrush to compress the final files. Can be lengthy."
       echo ""
@@ -585,9 +585,9 @@ if [[ $resize == true ]]
 then
   if [[ $sidegiven == '' ]]
   then
-    sidegiven='top'
+    sidegiven='center'
   fi
-  # Set the side for alignment. Default is top/north
+  # Set the side for alignment. Default is center.
   case "$sidegiven" in
     top|north)
       side="north"
