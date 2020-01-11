@@ -171,6 +171,7 @@ do
 #  output=${output%.*}
   cp "$i" "$workdir/$output"
 #  magick "$i" -units PixelsPerInch -density $dpi +repage -define png:compression-filter=1 -define png:compression-level=3 -define png:compression-strategy=0 "$workdir/$output.png"
+  #magick "$i" -units PixelsPerInch -density $dpi +repage "$workdir/$output.$extension"
 done
 
 # Enlarge if the dpi is too small for a good tesseract reading
@@ -195,9 +196,7 @@ do
 	  # Combine two PDF files for final version
 	  pdftk "$workdir/$filename.pdf" multibackground "$workdir/big/$filename.pdf" output "$finaldir/$filename.pdf"
 	else
-	  echo '1'
 	  tesseract -l $lang "$workdir/$filename" "$finaldir/$filename" pdf
-	  echo '2'
 	fi
 done
 
