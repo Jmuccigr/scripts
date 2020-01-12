@@ -189,12 +189,12 @@ while test $# -gt 0; do
       ;;
     -deskew)
       deskew=' -deskew 40% '
-      resize=true
+#     resize=true
       shift
       ;;
     -skewy)
       deskew=' -deskew 40% -deskew 40% -fuzz 2% -trim '
-      resize=true
+#     resize=true
       shift
       ;;
     -despeckle)
@@ -228,6 +228,48 @@ while test $# -gt 0; do
       fi
       shift
       ;;
+    -size)
+      resize=true
+      sizegiven=true
+      if [[ $max == true ]]
+      then
+        echo ''
+        echo -e "\a    max setting overrides any other size setting, such as size or enlarge"
+        sizegiven=false
+        enlarge=false
+		elif [[ $enlarge == true ]]
+		then
+		  echo ''
+		  echo -e "\a    a specific size setting overrides the enlarge setting"
+		  enlarge=false
+		fi
+      shift
+      size=$1
+      shift
+      ;;
+    -enlarge)
+	  resize=true
+      enlarge=true
+      if [[ $max == true || $sizegiven == true ]]
+      then
+        echo ''
+        echo -e "\a    max or specific size setting overrides enlarge"
+        enlarge=false
+      fi
+      shift
+      ;;
+    -max)
+      if [[ $enlarge == true || $sizegiven == true ]]
+      then
+        echo ''
+        echo -e "\a    max setting overrides any other size setting, such as size or enlarge"
+        sizegiven=false
+        enlarge=false
+      fi
+      resize=true
+      max=true
+      shift
+      ;;
     -resize)
       if [[ $resize == true ]]
       then
@@ -238,30 +280,14 @@ while test $# -gt 0; do
 	  fi
       shift
       ;;
-    -size)
-      resize=true
-      sizegiven=true
-      shift
-      size=$1
-      shift
-      ;;
-    -max)
-      resize=true
-      shift
-      ;;
-    -enlarge)
-      resize=true
-      enlarge=true
-      shift
-      ;;
     -color)
-      resize=true
+#     resize=true
       shift
       color=$1
       shift
       ;;
     -side)
-      resize=true
+#     resize=true
       shift
       sidegiven=$1
       shift
@@ -606,49 +632,53 @@ then
       ;;
   esac
 
-  # Get max width and height
-  filewxh=`magick "${search_string[@]}" -ping +repage -layers trim-bounds -delete 1--1 -format %P  info:`
-  filew=`echo $filewxh | sed 's/x.*//'`
-  fileh=`echo $filewxh | sed 's/.*x//'`
-  if [[ $sizegiven == true ]]
-  then
-      w=`echo $size | sed 's/x.*//'`
-      h=`echo $size | sed 's/.*x//'`
-      if [[ w -lt filew ]]
-      then
-        echo -e "\aWarning: entered width is less than the original files'. Aborting."
-        exit 0
-      fi
-      if [[ h -lt fileh ]]
-      then
-        echo -e "\aWarning: entered height is less than the original files'. Aborting."
-        exit 0
-      fi
-  else
-      if [[ $enlarge == true ]]
-      then
-        wd=$(( filew / 20 ))
-        hd=$(( fileh / 20 ))
-        w=$(( filew + wd * 2 ))
-        h=$(( fileh + hd * 2 ))
-      else # max must have been entered
-        w=$filew
-        h=$fileh
-      fi
-  fi
-
-  # Create new directory & save converted files in it
-  # Put existing file 5% down from the top of the background page by default
-  # This will consistently treat final pages that are short.
+  # Get new width and height
+  # First handle resizing to max
+  # Set default vertical offset to 0. Only change for enlarge.
+  hd=0
   mkdir "$dir/$resizedir"
-  j=0
-  for i in "${search_string[@]}"
-  do
-    k="00$j"
-    l=${k: -3}
-    magick \( -size "$w"x"$h" -background "$color" xc: -write mpr:bgimage +delete \) mpr:bgimage -gravity $side -geometry +0+$hd "$i" -compose divide_dst -composite $pngOpts $depthSet $colorspace $ccit "$dir/$resizedir/$output-$l.$extension"
-    ((j++))
-  done
+  if [[ $max == true ]]
+  then
+    w=`magick -format "%w\n" r*.png info: | uniq | sort -n -r | head -n 1`
+    h=`magick -format "%h\n" r*.png info: | uniq | sort -n -r | head -n 1`
+  else
+    j=0
+    for i in "${search_string[@]}"
+    do
+	  filew=`magick "$i" -ping +repage -layers trim-bounds -delete 1--1 -format %W info:`
+	  fileh=`magick "$i" -ping +repage -layers trim-bounds -delete 1--1 -format %H info:`
+	  if [[ $sizegiven == true ]]
+	  then
+		w=`echo $size | sed 's/x.*//'`
+		h=`echo $size | sed 's/.*x//'`
+		if [[ w -lt filew ]]
+		then
+		  echo -e "\aWarning: entered width is less than the original files'. Aborting."
+		  exit 0
+		fi
+		if [[ h -lt fileh ]]
+		then
+		  echo -e "\aWarning: entered height is less than the original files'. Aborting."
+		  exit 0
+		fi
+	  else
+		if [[ $enlarge == true ]]
+		then
+		  wd=$(( filew / 20 ))
+		  hd=$(( fileh / 20 ))
+		  w=$(( filew + wd * 2 ))
+		  h=$(( fileh + hd * 2 ))
+		fi
+	  fi
+	  # Create new directory & save converted files in it
+	  # Put existing file 5% down from the top of the background page by default
+	  # This will consistently treat final pages that are short.
+	  k="00$j"
+	  l=${k: -3}
+	  magick \( -size "$w"x"$h" -background "$color" xc: -write mpr:bgimage +delete \) mpr:bgimage -gravity $side -geometry +0+$hd "$i" -compose divide_dst -composite $pngOpts $depthSet $colorspace $ccit "$dir/$resizedir/$output-$l.$extension"
+	  ((j++))
+    done
+  fi
   origin_dir="$dir/$resizedir"
   search_string=("$origin_dir/$output-"*".$extension")
 fi
@@ -679,30 +709,6 @@ then
   search_string=("$origin_dir/$output-"*)
 fi
 
-# fix dpi to fit on letter/A4 page
-for i in "${search_string[@]}"
-do
-  # Get  width and height
-  filewxh=`magick "$i" -ping +repage -layers trim-bounds -delete 1--1 -format %P  info:`
-  filew=`echo $filewxh | sed 's/x.*//'`
-  fileh=`echo $filewxh | sed 's/.*x//'`
-  if [[ $fileh > $filew ]] # portrait mode
-  then
-	wdim=`awk "BEGIN { print $filew / 8 }"`
-	hdim=`awk "BEGIN { print $fileh / 11 }"`
-  else
-	wdim=`awk "BEGIN { print $filew / 11 }"`
-	hdim=`awk "BEGIN { print $fileh / 8 }"`
-  fi
-  if `awk "BEGIN { print $wdim > $hdim }"`
-  then
-	imagedim=$hdim
-  else
-	imagedim=$wdim
-  fi
-magick mogrify -units pixelsperinch -density $imagedim "$i" 1>/dev/null
-done
-
 # pngcrush
 if [[ $crush == true ]]
 then
@@ -711,7 +717,6 @@ then
   j=0
   for i in "${search_string[@]}"
   do
-    echo "$i"
     k="00$j"
     l=${k: -3}
     pngcrush "$i" "$dir/$crushdir/$output-$l.png" 1>/dev/null
@@ -720,3 +725,27 @@ then
   origin_dir="$dir/$crushdir"
   search_string=("$origin_dir/$output-"*)
 fi
+
+# fix dpi to fit on letter/A4 page
+for i in "${search_string[@]}"
+do
+  # Get  width and height
+  filew=`magick "$i" -ping +repage -layers trim-bounds -delete 1--1 -format %W info:`
+  fileh=`magick "$i" -ping +repage -layers trim-bounds -delete 1--1 -format %H info:`
+  # Find resolution needed to fit longer side on the page
+  if [[ $fileh -gt $filew ]] # portrait mode
+  then
+    wdim=`awk "BEGIN { print ($filew / 8) }"`
+	hdim=`awk "BEGIN { print ($fileh / 11) }"`
+  else
+	wdim=`awk "BEGIN { print ($filew / 11) }"`
+	hdim=`awk "BEGIN { print ($fileh / 8) }"`
+  fi
+if [[ $wdim > $hdim ]]
+  then
+	imagedim=$wdim
+  else
+    imagedim=$hdim
+  fi
+  magick mogrify -units pixelsperinch -density $imagedim "$i" 1>/dev/null
+done
