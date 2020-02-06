@@ -274,7 +274,7 @@ while test $# -gt 0; do
       if [[ $resize == true ]]
       then
         echo ''
-        echo -e "\a    No need to set -resize when using any option that alters image size"
+        echo -e "\a    No need to set -g when using any option that alters image size"
 	  else
         resize=true
 	  fi
@@ -579,7 +579,7 @@ then
 	do
 	  k="00$j"
 	  l=${k: -3}
-	  magick "$i" -colorspace gray \( +clone -lat 30x30-$offset% -negate \) -compose divide_src -composite $pngOpts $depthSet +repage "$dir/$bgcleandir/$output"-$l.$extension 1>/dev/null
+	  magick "$i" -colorspace gray \( +clone -lat 30x30-$offset% -negate \) -compose divide_src -composite $pngOpts $depthSet +repage -white-threshold 90% "$dir/$bgcleandir/$output"-$l.$extension 1>/dev/null
 	  ((j++))
 	done
   origin_dir="$dir/$bgcleandir"
@@ -639,46 +639,45 @@ then
   mkdir "$dir/$resizedir"
   if [[ $max == true ]]
   then
-    w=`magick -format "%w\n" r*.png info: | uniq | sort -n -r | head -n 1`
-    h=`magick -format "%h\n" r*.png info: | uniq | sort -n -r | head -n 1`
-  else
-    j=0
-    for i in "${search_string[@]}"
-    do
-	  filew=`magick "$i" -ping +repage -layers trim-bounds -delete 1--1 -format %W info:`
-	  fileh=`magick "$i" -ping +repage -layers trim-bounds -delete 1--1 -format %H info:`
-	  if [[ $sizegiven == true ]]
-	  then
-		w=`echo $size | sed 's/x.*//'`
-		h=`echo $size | sed 's/.*x//'`
-		if [[ w -lt filew ]]
-		then
-		  echo -e "\aWarning: entered width is less than the original files'. Aborting."
-		  exit 0
-		fi
-		if [[ h -lt fileh ]]
-		then
-		  echo -e "\aWarning: entered height is less than the original files'. Aborting."
-		  exit 0
-		fi
-	  else
-		if [[ $enlarge == true ]]
-		then
-		  wd=$(( filew / 20 ))
-		  hd=$(( fileh / 20 ))
-		  w=$(( filew + wd * 2 ))
-		  h=$(( fileh + hd * 2 ))
-		fi
-	  fi
-	  # Create new directory & save converted files in it
-	  # Put existing file 5% down from the top of the background page by default
-	  # This will consistently treat final pages that are short.
-	  k="00$j"
-	  l=${k: -3}
-	  magick \( -size "$w"x"$h" -background "$color" xc: -write mpr:bgimage +delete \) mpr:bgimage -gravity $side -geometry +0+$hd "$i" -compose divide_dst -composite $pngOpts $depthSet $colorspace $ccit "$dir/$resizedir/$output-$l.$extension"
-	  ((j++))
-    done
+    w=`magick -format "%w\n" "$search_string" info: | uniq | sort -n -r | head -n 1`
+    h=`magick -format "%h\n" "$search_string" info: | uniq | sort -n -r | head -n 1`
   fi
+  j=0
+  for i in "${search_string[@]}"
+  do
+	filew=`magick "$i" -ping +repage -layers trim-bounds -delete 1--1 -format %W info:`
+	fileh=`magick "$i" -ping +repage -layers trim-bounds -delete 1--1 -format %H info:`
+	if [[ $sizegiven == true ]]
+	then
+	  w=`echo $size | sed 's/x.*//'`
+	  h=`echo $size | sed 's/.*x//'`
+	  if [[ w -lt filew ]]
+	  then
+		echo -e "\aWarning: entered width is less than the original files'. Aborting."
+		exit 0
+	  fi
+	  if [[ h -lt fileh ]]
+	  then
+		echo -e "\aWarning: entered height is less than the original files'. Aborting."
+		exit 0
+	  fi
+	else
+	  if [[ $enlarge == true ]]
+	  then
+		wd=$(( filew / 20 ))
+		hd=$(( fileh / 20 ))
+		w=$(( filew + wd * 2 ))
+		h=$(( fileh + hd * 2 ))
+	  fi
+	fi
+	# Create new directory & save converted files in it
+	# Put existing file 5% down from the top of the background page by default
+	# This will consistently treat final pages that are short.
+	k="00$j"
+	l=${k: -3}
+	magick \( -size "$w"x"$h" -background "$color" xc: -write mpr:bgimage +delete \) mpr:bgimage -gravity $side -geometry +0+$hd "$i" -compose divide_dst -composite $pngOpts $depthSet $colorspace $ccit "$dir/$resizedir/$output-$l.$extension"
+	((j++))
+  done
   origin_dir="$dir/$resizedir"
   search_string=("$origin_dir/$output-"*".$extension")
 fi
@@ -732,7 +731,7 @@ do
   # Get  width and height
   filew=`magick "$i" -ping +repage -layers trim-bounds -delete 1--1 -format %W info:`
   fileh=`magick "$i" -ping +repage -layers trim-bounds -delete 1--1 -format %H info:`
-  # Find resolution needed to fit longer side on the page
+# Find resolution needed to fit longer side on the page
   if [[ $fileh -gt $filew ]] # portrait mode
   then
     wdim=`awk "BEGIN { print ($filew / 8) }"`

@@ -38,6 +38,12 @@ function get_dpi {
 	echo $dpi
 }
 
+# Function to get depth, so we can treat 1-bit images differently
+function get_depth {
+	dpth=`identify -format %[bit-depth] "$1"`
+	echo $dpth
+}
+
 # Function to set enlargement value for optimal tesseract OCR
 # Recommended at least 300 dpi
 function get_enlargement {
@@ -167,6 +173,7 @@ fi
 for i in "$origin_dir"/"$firstchar"*."$extension"
 do
   dpi=`get_dpi "$i"`
+  dpth=`get_depth "$i"`
   output=`basename "$i"`
 #  output=${output%.*}
   cp "$i" "$workdir/$output"
@@ -182,6 +189,12 @@ do
   # Spit out a little output for user feedback
   filename=`basename "$i"`
   echo $filename | sed  "s/^.*\-//" | sed "s/\..*//"
+  if [[ $dpth -eq 1 ]]
+    then
+      ccit=" -monochrome -compress Group4 -quality 100 "
+    else
+      ccit=""
+  fi
   if [[ $dpi -lt 300 ]]
 	then
 	  enlarge=`get_enlargement "$dpi"`
@@ -189,7 +202,7 @@ do
 	  # Create enlarged file for tesseract
 	  magick "$i" -resize $enlarge "$workdir/big/$filename"
 	  # Create PDF at original size
-	  magick "$i" "$workdir/$filename.pdf"
+	  magick "$i" $ccit "$workdir/$filename.pdf"
 	  # Create text-only PDF with tesseract
 	  tesseract -l $lang -c textonly_pdf=1 "$workdir/big/$filename" "$workdir/big/$filename" pdf
 	  # Combine two PDF files for final version
