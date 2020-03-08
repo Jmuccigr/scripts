@@ -366,6 +366,7 @@ fi
 
 # Throw warning when bitdepth is 1, but certain options were entered
 bitdepth=$(identify -format "%z" "$input")
+comp=`identify -format "%C" "$input"`
 if [[ $bitdepth == '1' && $bgclean == true ]]
 then
   echo -e "\a    Can't clean background on 1-bit images. Ignoring bgclean."
@@ -598,7 +599,7 @@ then
 fi
 
 # ccit
-if [[ $ccit != '' ]]
+if [[ $ccit != '' && $comp != 'Fax' && $comp != 'Group4' ]]
 then
   mkdir "$dir/$ccitdir"
   magick "${search_string[@]}" $ccit "$dir/$ccitdir/$output"-%03d.$extension 1>/dev/null
@@ -639,8 +640,8 @@ then
   mkdir "$dir/$resizedir"
   if [[ $max == true ]]
   then
-    w=`magick -format "%w\n" "$search_string" info: | uniq | sort -n -r | head -n 1`
-    h=`magick -format "%h\n" "$search_string" info: | uniq | sort -n -r | head -n 1`
+    w=`magick -format "%w\n" "${search_string[@]}" info: | uniq | sort -n -r | head -n 1`
+    h=`magick -format "%h\n" "${search_string[@]}" info: | uniq | sort -n -r | head -n 1`
   fi
   j=0
   for i in "${search_string[@]}"
