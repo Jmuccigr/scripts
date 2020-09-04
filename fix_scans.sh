@@ -27,7 +27,7 @@ resize=false
 sizegiven=false
 enlarge=false
 colorspace=''
-ccit=''
+ccitt=''
 threshold='80%'
 offset='15'
 color='white'
@@ -35,6 +35,7 @@ side='north'
 sidegiven=''
 pngOpts=' '
 #pngOpts=" -define png:compression-filter=1 -define png:compression-level=3 -define png:compression-strategy=0 "
+tiffmaint=''
 number=$RANDOM
 number="0000$number"
 number=${number: -5}
@@ -61,7 +62,7 @@ while test $# -gt 0; do
       echo "options:"
       echo "-h, --help     Show this brief help."
       echo "-f <X>         First processed page of PDF will be X. Does nothing on non-PDF."
-      echo "-ccit          Convert image to 1-bit."
+      echo "-ccitt         Convert image to 1-bit."
       echo "-depth <1-16>  Set bit-depth in output. Does nothing on its own."
       echo "-gray          Use grayscale in output."
       echo "-threshold <%> Percentage to apply to creating 1-bit images."
@@ -120,8 +121,8 @@ while test $# -gt 0; do
       dpth=$1
       shift
       ;;
-    -ccit)
-      ccit=" -threshold $threshold -alpha off -monochrome -compress Group4 -quality 100 "
+    -ccitt)
+      ccitt=" -threshold $threshold -alpha off -monochrome -compress Group4 -quality 100 "
       shift
       ;;
     -png)
@@ -322,7 +323,7 @@ then
 fi
 
 # Throw warning when nothing to be done
-if [[ $input_extension != 'pdf' && $layout == '' && $deskew == '' && $despeckle == '' && $bgclean == false && $rotate == false && $resize == false && $crush == false && $ccit == '' ]]
+if [[ $input_extension != 'pdf' && $layout == '' && $deskew == '' && $despeckle == '' && $bgclean == false && $rotate == false && $resize == false && $recenter == false && $crush == false && $ccitt == '' ]]
 then
     echo ''
     echo  -e "\a    Oops! Nothing will happen to non-PDF files unless some processing is specified."
@@ -373,9 +374,9 @@ then
   bgclean=false
 fi
 
-if [[ $bitdepth == '1' || $ccit != '' ]]
+if [[ $bitdepth == '1' || $ccitt != '' ]]
 then
-  ccit=" -threshold $threshold -alpha off -monochrome -compress Group4 -quality 100 "
+  ccitt=" -threshold $threshold -alpha off -monochrome -compress Group4 -quality 100 "
   if [[ $crush == true || png == true ]]
   then
 	echo -e "\a    1-bit images are not saved as png. Ignoring crush and png settings."
@@ -387,9 +388,9 @@ fi
 # Check a couple of things if output bit-depth is requested
 if [[ $dpth != '' ]]
 then
-  if [[ $ccit != '' ]]
+  if [[ $ccitt != '' ]]
   then
-	echo -e "\a    ccit over-rides depth setting. Ignoring depth."
+	echo -e "\a    ccitt over-rides depth setting. Ignoring depth."
 	dpth=''
   elif [[ $bitdepth -lt $dpth ]]
   then
@@ -409,7 +410,7 @@ fi
 dir=`dirname "$1"`
 
 # Set up working directories
-ccitdir="ccit_$number"
+ccittdir="ccitt_$number"
 rotatedir="rotated_$number"
 convertdir="convert_$number"
 myunpaperdir="myunpaper_$number"
@@ -467,9 +468,10 @@ fi
 if [[ $png == true ]]
 then
   extension='png'
-elif [[ $ccit != '' ]]
+elif [[ $ccitt != '' ]]
 then
   extension='tiff'
+  tiffmaint=' -define tiff:preserve-compression=true '
 fi
 
 # rotate
@@ -593,17 +595,17 @@ then
   # echo "${search_string[@]}"
   # extension='png'
   mkdir "$dir/$cleandir"
-  magick "${search_string[@]}" $deskew $despeckle $pngOpts $depthSet $colorspace $ccit +repage "$dir/$cleandir/$output"-%03d.$extension 1>/dev/null
+  magick "${search_string[@]}" $deskew $despeckle $pngOpts $depthSet $colorspace $ccitt +repage "$dir/$cleandir/$output"-%03d.$extension 1>/dev/null
   origin_dir="$dir/$cleandir"
   search_string=("$origin_dir/$output-"*)
 fi
 
-# ccit
-if [[ $ccit != '' && $comp != 'Fax' && $comp != 'Group4' ]]
+# ccitt
+if [[ $ccitt != '' && $comp != 'Fax' && $comp != 'Group4' ]]
 then
-  mkdir "$dir/$ccitdir"
-  magick "${search_string[@]}" $ccit "$dir/$ccitdir/$output"-%03d.$extension 1>/dev/null
-  origin_dir="$dir/$ccitdir"
+  mkdir "$dir/$ccittdir"
+  magick "${search_string[@]}" $ccitt "$dir/$ccittdir/$output"-%03d.$extension 1>/dev/null
+  origin_dir="$dir/$ccittdir"
   search_string=("$origin_dir/$output-"*)
 fi
 
@@ -676,7 +678,7 @@ then
 	# This will consistently treat final pages that are short.
 	k="00$j"
 	l=${k: -3}
-	magick \( -size "$w"x"$h" -background "$color" xc: -write mpr:bgimage +delete \) mpr:bgimage -gravity $side -geometry +0+$hd "$i" -compose divide_dst -composite $pngOpts $depthSet $colorspace $ccit "$dir/$resizedir/$output-$l.$extension"
+	magick \( -size "$w"x"$h" -background "$color" xc: -write mpr:bgimage +delete \) mpr:bgimage -gravity $side -geometry +0+$hd "$i" -compose divide_dst -composite $pngOpts $depthSet $colorspace $tiffmaint "$dir/$resizedir/$output-$l.$extension"
 	((j++))
   done
   origin_dir="$dir/$resizedir"
@@ -701,8 +703,8 @@ then
 	new_w=${orig_dim[4]}
 	x_dis=$(( (w - new_w) / 2))
 	## Grab printed area and center it on white background
-#	magick \( -size "$w"x$h -background white xc: -write mpr:bgimage +delete \) mpr:bgimage \( -crop "$w"x$h+$x+$y "$i" \) -compose divide_dst -gravity northwest -geometry +$x_dis$y -composite $ccit "$dir/$recenterdir/$output-$l.$extension"
-	magick -size "$w"x$h -background white xc: \( "$i" -crop "$w"x$h+$x+$y \) -compose divide_dst -gravity northwest -geometry +$x_dis$y -composite $depthSet $colorspace $ccit "$dir/$recenterdir/$output-$l.$extension"
+#	magick \( -size "$w"x$h -background white xc: -write mpr:bgimage +delete \) mpr:bgimage \( -crop "$w"x$h+$x+$y "$i" \) -compose divide_dst -gravity northwest -geometry +$x_dis$y -composite $ccitt "$dir/$recenterdir/$output-$l.$extension"
+	magick -size "$w"x$h -background white xc: \( "$i" -crop "$w"x$h+$x+$y \) -compose divide_dst -gravity northwest -geometry +$x_dis$y -composite $depthSet $colorspace $ccitt "$dir/$recenterdir/$output-$l.$extension"
     ((j++))
   done
   origin_dir="$dir/$recenterdir"
@@ -747,5 +749,5 @@ if [[ $wdim > $hdim ]]
   else
     imagedim=$hdim
   fi
-  magick mogrify -units pixelsperinch -density $imagedim "$i" 1>/dev/null
+  magick mogrify $tiffmaint -units pixelsperinch -density $imagedim "$i" 1>/dev/null
 done
