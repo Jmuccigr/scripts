@@ -215,6 +215,6 @@ do
 done
 
 # Sleeping to avoid some unexpected terminations
-sleep 5 && pdfunite "$finaldir/"*.pdf "$origin_dir/$finalname"
+sleep 5 && qpdf --empty --pages "$finaldir/"*.pdf -- "$origin_dir/$finalname"
 
 terminal-notifier -message "Your OCR is complete." -title "Yay!" -sound default
