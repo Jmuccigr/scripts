@@ -678,7 +678,7 @@ then
 	# This will consistently treat final pages that are short.
 	k="00$j"
 	l=${k: -3}
-	magick \( -size "$w"x"$h" -background "$color" xc: -write mpr:bgimage +delete \) mpr:bgimage -gravity $side -geometry +0+$hd "$i" -compose divide_dst -composite $pngOpts $depthSet $colorspace $tiffmaint "$dir/$resizedir/$output-$l.$extension"
+	magick \( -size "$w"x"$h" -background "$color" xc: -write mpr:bgimage +delete \) mpr:bgimage -gravity $side -geometry +0+$hd "$i" -compose divide_dst -composite $pngOpts $depthSet $colorspace $ccitt "$dir/$resizedir/$output-$l.$extension"
 	((j++))
   done
   origin_dir="$dir/$resizedir"
