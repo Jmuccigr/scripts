@@ -66,6 +66,7 @@ function get_enlargement {
 }
 
 # Set some variables
+startTime=`date +%s`
 png=true
 lang=''
 number=$RANDOM
@@ -184,16 +185,18 @@ done
 # A bit arbitrary to use 300 dpi as minimum. Should estimate better.
 # Make a PDF of original and combine with no-image PDF from tesseract.
 #for i in "$workdir/"*".png"
+counter=0
+itemTotal=`ls "$workdir/"*".$extension" | wc -l`
 for i in "$workdir/"*".$extension"
 do
   # Spit out a little output for user feedback
-  filename=`basename "$i"`
-  echo $filename | sed  "s/^.*\-//" | sed "s/\..*//"
+  counter=`expr $counter + 1 `
+  echo "Processing file" $counter "of" $itemTotal "files..."
   if [[ $dpth -eq 1 ]]
     then
-      ccit=" -monochrome -compress Group4 -quality 100 "
+      ccitt=" -monochrome -compress Group4 -quality 100 "
     else
-      ccit=""
+      ccitt=""
   fi
   if [[ $dpi -lt 300 ]]
 	then
@@ -202,19 +205,22 @@ do
 	  # Create enlarged file for tesseract
 	  magick "$i" -resize $enlarge "$workdir/big/$filename"
 	  # Create PDF at original size
-	  magick "$i" $ccit "$workdir/$filename.pdf"
+	  magick "$i" $ccitt "$workdir/$filename.pdf"
 	  # Create text-only PDF with tesseract
 	  tesseract -l $lang -c textonly_pdf=1 "$workdir/big/$filename" "$workdir/big/$filename" pdf
 	  # Combine two PDF files for final version
 	  pdftk "$workdir/$filename.pdf" multibackground "$workdir/big/$filename.pdf" output "$finaldir/$filename.pdf"
 	else
-	  echo '1'
+# 	  echo '1'
 	  tesseract -l $lang "$workdir/$filename" "$finaldir/$filename" pdf
-	  echo '2'
+# 	  echo '2'
 	fi
 done
 
 # Sleeping to avoid some unexpected terminations
 sleep 5 && qpdf --empty --pages "$finaldir/"*.pdf -- "$origin_dir/$finalname"
 
+endTime=`date +%s`
+elapsedTime=$(( $endTime - $startTime ))
+echo "Elapsed time: $(( ${elapsedTime} / 3600 ))h $(( (${elapsedTime} / 60) % 60 ))m $(( ${elapsedTime} % 60 ))s"
 terminal-notifier -message "Your OCR is complete." -title "Yay!" -sound default
