@@ -25,6 +25,8 @@ while test $# -gt 0; do
       echo "options:"
       echo "-h, --help     Show this brief help."
       echo "-f, --first    Keep the first page of the original PDF."
+      echo "-l language    Use this language for OCR (defaults to English)"
+      echo "               Use one of tesserat's 3-letter codes for this"
       exit 0
       ;;
     -f|--first)
@@ -89,7 +91,7 @@ final=`echo ${final:0:$maxl}`
 final="$final"_"$datestring".pdf
 origdir=`dirname "$input"`
 
-# Remove the first page right away and save a little time
+# If desired, remove the first page right away and save a little time
 if [[ $first ]]
 then
   inputold="$input"
@@ -98,7 +100,8 @@ then
 fi
 
 # strip text from the PDF
-python3 "/Users/john_muccigrosso/Downloads/remove_PDF_text.py" "$input" "$tmpdir/no_text.pdf"
+# python3 "./remove_PDF_text.py" "$input" "$tmpdir/no_text.pdf"
+gs -o "$tmpdir/no_text.pdf" -dFILTERTEXT -sDEVICE=pdfwrite "$input"
 
 # ocr the original pdf
 ocrmypdf --force-ocr --output-type pdf -l $lang "$tmpdir/no_text.pdf" "$tmpdir/ocr_output.pdf"
