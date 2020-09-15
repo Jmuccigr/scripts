@@ -27,6 +27,12 @@ Just some other scripts that aren't Apple.
         
     Still to do: provide option for one-line-per-cell style.
 
-- zotero_s_and_r.js: a javascript that does a search and replace in Zotero, using the Execute JS add-on for FireFox. See <https://forums.zotero.org/discussion/7707/1/find-and-replace-on-multiple-items/>.
-
 - convert_pdf: Use pdfimages to get the right dpi for a PDF and pass that along to convert.
+
+- clean_and_ocr_PDF.sh: replace the OCR in an existing PDF. You can choose to keep the original first page with its text. This leaves the original PDF otherwise the same. Good for cleaning up those JSTOR files with horrible OCR.
+
+- fix_scans.sh: Offers a whole bunch of cleaning options for image files. Good for poor scans.
+
+- ocr_images.sh: Performs OCR on a series of image files and then dumps them all into a single PDF which is scaled to fit on both US Letter and A4 paper (8x10.5" max size).
+
+- zotero_s_and_r.js: a javascript that does a search and replace in Zotero, using the Execute JS add-on for FireFox. See <https://forums.zotero.org/discussion/7707/1/find-and-replace-on-multiple-items/>.
