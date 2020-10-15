@@ -1,6 +1,7 @@
 #!/bin/sh
 
 datestring=`date +%Y-%m-%d_%H.%M.%S`
+dir_path=$(dirname $0)
 # Get length so final finalname is not too long
 ldate=`echo ${#datestring}`
 maxl=`expr 255 - $ldate`
@@ -100,8 +101,8 @@ then
 fi
 
 # strip text from the PDF
-# python3 "./remove_PDF_text.py" "$input" "$tmpdir/no_text.pdf"
-gs -o "$tmpdir/no_text.pdf" -dFILTERTEXT -sDEVICE=pdfwrite "$input"
+python3 "$dir_path/remove_PDF_text.py" "$input" "$tmpdir/no_text.pdf"
+#gs -o "$tmpdir/no_text.pdf" -dFILTERTEXT -sDEVICE=pdfwrite "$input"
 
 # ocr the original pdf
 ocrmypdf --force-ocr --output-type pdf -l $lang "$tmpdir/no_text.pdf" "$tmpdir/ocr_output.pdf"
