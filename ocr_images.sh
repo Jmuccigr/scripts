@@ -69,6 +69,7 @@ function get_enlargement {
 startTime=`date +%s`
 png=true
 lang=''
+ignore_ext=false
 number=$RANDOM
 number="00$number"
 number=${number: -5}
@@ -92,18 +93,23 @@ while test $# -gt 0; do
       echo ''
       echo "options:"
       echo "-h, --help      show brief help"
+      echo "-i              process files regardless of extension"
       echo "-l <language>   specify a tesseract 3-letter language code"
       echo ''
       echo "This script takes an input file and uses tesseract to perform OCR on it,"
       echo "and then creates an output PDF in the same directory."
       echo ''
       echo "All files in the directory with the same starting letter and extension"
-      echo "as the input file will be processed."
+      echo "as the input file will be processed, unless the -i flag is used."
       echo ''
       echo "If an output file is provided, it will be used with the extension \"pdf\" appended to it, if needed."
       echo "If no output file is provided \"final_xxxxx.pdf\" will be used, where xxxxx are random numbers."
       echo "Any existing file with the same name will be overwritten silently."
       exit 0
+      ;;
+    -i)
+      ignore_ext=true
+      shift
       ;;
     -l)
       shift
@@ -142,8 +148,12 @@ fi
 filename=`basename "$1"`
 firstchar=${filename:0:1}
 input=$(cd "$(dirname "$1")"; pwd)/"$filename"
-extension="${input##*.}"
-
+if [[ $ignore_ext == true ]]
+then
+  extension=""
+else
+  extension=."${input##*.}"
+fi
 origin_dir=`dirname "$input"`
 
 # Create work directories in the system temp folder
@@ -151,9 +161,6 @@ tempdir=`echo $TMPDIR`
 workdir="$tempdir$number"_tesseract
 finaldir=$workdir
 mkdir $workdir
-# Create directories for enlarging if needed
-mkdir $workdir/big
-mkdir $workdir/final
 
 # Check for language. Easy to forget to specify.
 # Needs some error checking
@@ -171,7 +178,7 @@ fi
 # OCR and save to PDF
 # Convert to correctly sized png which tesseract leaves alone when making PDF
 # Testing: don't understand why I'm converting to png here
-for i in "$origin_dir"/"$firstchar"*."$extension"
+for i in "$origin_dir"/"$firstchar"*"$extension"
 do
   dpi=`get_dpi "$i"`
   dpth=`get_depth "$i"`
@@ -186,8 +193,8 @@ done
 # Make a PDF of original and combine with no-image PDF from tesseract.
 #for i in "$workdir/"*".png"
 counter=0
-itemTotal=`ls "$workdir/"*".$extension" | wc -l`
-for i in "$workdir/"*".$extension"
+itemTotal=`ls "$workdir/"*"$extension" | wc -l`
+for i in "$workdir/"*"$extension"
 do
   # Spit out a little output for user feedback
   counter=$(( counter + 1 ))
@@ -201,7 +208,13 @@ do
   fi
   if [[ $dpi -lt 300 ]]
 	then
-	  enlarge=`get_enlargement "$dpi"`
+	  # Create directories for enlarging if needed after files have been grabbed
+	  if [ ! -d "$workdir/big" ]
+	  then
+	    mkdir $workdir/big
+	    mkdir $workdir/final
+	  fi
+      enlarge=`get_enlargement "$dpi"`
 	  finaldir="$workdir/final"
 	  # Create enlarged file for tesseract
 	  magick "$i" -resize $enlarge "$workdir/big/$filename"
