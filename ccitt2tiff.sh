@@ -2,9 +2,8 @@
 
 # Script to create Group4 compressed tiff files from a ccitt/params file pair
 # like those made by pdfimages.
-# Pass the script one of the files and it will act on all pairs in that dir.
-
-datestring=`date +%Y-%m-%d_%H.%M.%S`
+# Pass the script one of the files and it will act on all pairs in that dir,
+# creating a sub-directory with a date-stamped name to store the tiffs.
 
 if [[ $# == 0 ]]
 then
@@ -21,7 +20,6 @@ while test $# -gt 0; do
       echo "Pass the script one of the files and it will act on all pairs in that dir,"
       echo "creating a sub-directory with a date-stamped name to store the tiffs."
       echo ""
-
       echo "options:"
       echo "-h, --help     Show this brief help."
       exit 0
@@ -34,6 +32,8 @@ done
 
 filename=$1
 working_dir=`dirname "$1"`
+
+datestring=`date +%Y-%m-%d_%H.%M.%S`
 dest_dir="$working_dir"/tiff_"$datestring"
 mkdir "$dest_dir"
 
