@@ -28,6 +28,7 @@ sizegiven=false
 enlarge=false
 colorspace=''
 ccitt=''
+normalize=''
 threshold='80%'
 offset='15'
 color='white'
@@ -63,6 +64,7 @@ while test $# -gt 0; do
       echo "-h, --help     Show this brief help."
       echo "-f <X>         First processed page of PDF will be X. Does nothing on non-PDF."
       echo "-ccitt         Convert image to 1-bit."
+      echo "-normalize     Normalize the output image"
       echo "-depth <1-16>  Set bit-depth in output. Does nothing on its own."
       echo "-gray          Use grayscale in output."
       echo "-threshold <%> Percentage to apply to creating 1-bit images."
@@ -200,6 +202,10 @@ while test $# -gt 0; do
       ;;
     -despeckle)
       despeckle=' -despeckle '
+      shift
+      ;;
+    -normalize)
+      normalize=' -normalize '
       shift
       ;;
     -bgclean)
@@ -589,13 +595,13 @@ then
   search_string=("$origin_dir/$output-"*)
 fi
 
-# despeckle and deskew
-if [[ $deskew != '' || $despeckle != '' ]]
+# despeckle and deskew and normalize
+if [[ $deskew != '' || $despeckle != '' || $normalize != '' ]]
 then
   # echo "${search_string[@]}"
   # extension='png'
   mkdir "$dir/$cleandir"
-  magick "${search_string[@]}" $deskew $despeckle $pngOpts $depthSet $colorspace $ccitt +repage "$dir/$cleandir/$output"-%03d.$extension 1>/dev/null
+  magick "${search_string[@]}" $deskew $despeckle $normalize $pngOpts $depthSet $colorspace $ccitt +repage "$dir/$cleandir/$output"-%03d.$extension 1>/dev/null
   origin_dir="$dir/$cleandir"
   search_string=("$origin_dir/$output-"*)
 fi
