@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Script to create Group4 compressed tiff files from a ccitt/params file pair
 # like those made by pdfimages.
@@ -32,25 +32,34 @@ done
 
 filename=$1
 working_dir=`dirname "$1"`
+output_param=' '
 
 datestring=`date +%Y-%m-%d_%H.%M.%S`
 dest_dir="$working_dir"/tiff_"$datestring"
 mkdir "$dest_dir"
+counter=0
+itemTotal=`ls "$working_dir/"*.ccitt | wc -l`
 
 for i in "$working_dir"/*.ccitt
 do
+  counter=$(( counter + 1 ))
+  echo -en "\r\033eProcessing file" $counter "of" $itemTotal "files..."
   j="${i%.*}"
   k=`basename "$j"`
   param_string=`cat "$j".params`
   # Set appropriate output parameters
   if [[ $param_string == *" -4 "* || $param_string == *" -4" || $param_string == "-4 "*  ]]
   then
-    output_param="-8"
-    echo 4
-  if [[ $param_string == *" -3 "* || $param_string == *" -3" || $param_string == "-3 "*  ]]
+    output_param=" -8 "
+  elif [[ $param_string == *" -3 "* || $param_string == *" -3" || $param_string == "-3 "*  ]]
   then
-    output_param="-7"
+    output_param=" -7 "
   fi
+  if [[ $output_param == ' ' ]]
+  then
+    echo "No encoding specified in parameter file."
+  fi
+  #echo -o "$dest_dir"/"$k".tiff `cat "$j".params` "$output_param" "$i"
   fax2tiff -o "$dest_dir"/"$k".tiff `cat "$j".params` "$output_param" "$i"
 done
 
