@@ -123,10 +123,19 @@ while test $# -gt 0; do
 done
 
 # Remaining input should be the input file name with optional output filename
+# If wildcard is input, throw an error
 # Make sure it has the right extension
-input="$1"
-if [[ $# > 1 ]]
+optionCount=$#
+if [[ $optionCount > 2 ]]
 then
+  echo "You've entered too many inputs, perhaps a wildcard in the filename?"
+  exit 0
+fi
+
+input="$1"
+if [[ $optionCount > 1 ]]
+then
+  echo "You entered two arguments, so we'll use the second one for the name of the output file."
   finalname="$2"
   finalextension="${finalname##*.}"
   if [[ $finalextension != 'pdf' ]]
