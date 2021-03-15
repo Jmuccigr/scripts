@@ -92,6 +92,10 @@ final=`echo ${final:0:$maxl}`
 final="$final"_"$datestring".pdf
 origdir=`dirname "$input"`
 
+# Get some of the original document metadata to add back at the end
+title=`pdfinfo "$input" | grep ^Title: | perl -pe 's/Title:\s+//'`
+author=`pdfinfo "$input" | grep ^Author: | perl -pe 's/Author:\s+//'`
+
 # If desired, remove the first page right away and save a little time
 if [[ $first ]]
 then
@@ -104,6 +108,15 @@ fi
 python3 "$dir_path/remove_PDF_text.py" "$input" "$tmpdir/no_text.pdf"
 #gs -o "$tmpdir/no_text.pdf" -dFILTERTEXT -sDEVICE=pdfwrite "$input"
 
+# Make sure output file exists
+if [[ ! -s "$tmpdir/no_text.pdf" ]]
+then
+  echo ''
+  echo "\a"Work file \""$input"\" does not appear to exist or has no content! Exiting...
+  echo ''
+  exit 0
+fi
+
 # ocr the original pdf
 ocrmypdf --force-ocr --output-type pdf -l $lang "$tmpdir/no_text.pdf" "$tmpdir/ocr_output.pdf"
 
@@ -111,8 +124,17 @@ ocrmypdf --force-ocr --output-type pdf -l $lang "$tmpdir/no_text.pdf" "$tmpdir/o
 gs -o "$tmpdir/textonly.pdf" -dFILTERIMAGE -dFILTERVECTOR -sDEVICE=pdfwrite "$tmpdir/ocr_output.pdf"
 
 # overlay ocr text on file stripped of text
-
 qpdf "$tmpdir/no_text.pdf" --overlay "$tmpdir/textonly.pdf" -- "$tmpdir/final.pdf"
+
+# Restore the original metadata, if any
+if [ "$title" != '' ]
+then
+  exiftool -Title="$title" "$tmpdir/final.pdf"
+fi
+if [ "$author" != '' ]
+then
+  exiftool -Author="$author" "$tmpdir/final.pdf"
+fi
 
 # replace first page if required
 if [ $first ]
