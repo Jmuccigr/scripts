@@ -66,6 +66,7 @@ function get_enlargement {
 }
 
 # Set some variables
+tiff=" -define tiff:preserve-compression=true "
 startTime=`date +%s`
 png=true
 lang=''
@@ -226,9 +227,10 @@ do
       enlarge=`get_enlargement "$dpi"`
 	  finaldir="$workdir/final"
 	  # Create enlarged file for tesseract
-	  magick "$i" -resize $enlarge "$workdir/big/$filename"
+	  magick "$i" $tiff -resize $enlarge "$workdir/big/$filename"
 	  # Create PDF at original size
-	  magick "$i" $ccitt "$workdir/$filename.pdf"
+	  #magick "$i" $tiff  "$workdir/$filename.pdf"
+	  img2pdf "$i" -o  "$workdir/$filename.pdf"
 	  # Create text-only PDF with tesseract
 	  tesseract -l $lang -c textonly_pdf=1 "$workdir/big/$filename" "$workdir/big/$filename" pdf quiet
 	  # Combine two PDF files for final version
