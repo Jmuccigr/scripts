@@ -1,7 +1,7 @@
 #!/usr/local/bin/python3
 
-from PyPDF2 import PdfFileWriter, PdfFileReader
 import sys
+from PyPDF2 import PdfFileWriter, PdfFileReader
 output = PdfFileWriter()
 
 filename = str(sys.argv[1])
