@@ -2,13 +2,12 @@
 
 var fieldName = "language";
 var newValue = "it";
-var searchID = 28;
+var searchKey = "XXXXXXX" // Get the key from the web API
 
 var fieldID = Zotero.ItemFields.getID(fieldName);
 var s = new Zotero.Search();
 s.libraryID = Zotero.Libraries.userLibraryID;
-// Finding the ID by trial and error
-s.addCondition('savedSearchID', 'is', searchID);
+s.addCondition('savedSearch', 'is', searchKey);
 var ids = await s.search();
 if (!ids.length) {
     return "No items found";
