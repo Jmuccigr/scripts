@@ -36,7 +36,9 @@ output_param=' '
 
 datestring=`date +%Y-%m-%d_%H.%M.%S`
 dest_dir="$working_dir"/tiff_"$datestring"
+orig_dir="$working_dir"/originals_"$datestring"
 mkdir "$dest_dir"
+mkdir "$orig_dir"
 counter=0
 itemTotal=`ls "$working_dir/"*.ccitt | wc -l`
 
@@ -61,6 +63,8 @@ do
   fi
   #echo      -o "$dest_dir"/"$k".tiff `cat "$j".params` "$output_param" "$i"
   fax2tiff -o "$dest_dir"/"$k".tiff `cat "$j".params` $output_param "$i"
+  mv "$i" "$orig_dir"/
+  mv "$j.params" "$orig_dir"/
 done
 
 terminal-notifier -message "Conversion complete." -title "Yay!" -sound default
