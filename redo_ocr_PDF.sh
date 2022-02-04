@@ -91,11 +91,11 @@ final=`echo ${final%.*}`
 final=`echo ${final:0:$maxl}`
 final="$final"_"$datestring".pdf
 origdir=`dirname "$input"`
+inputold="$input"
 
 # If desired, remove the first page right away and save a little time
 if [[ $first ]]
 then
-  inputold="$input"
   input="$tmpdir"input_new.pdf
   qpdf "$inputold" --pages . 2-z -- "$input"
 fi
