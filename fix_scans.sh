@@ -17,7 +17,7 @@ depthSet=''
 deskew=''
 despeckle=''
 layout=''
-outputFormat=' -png '
+outputFormat=' -all '
 extension='png'
 png=false
 rotate=false
@@ -31,6 +31,7 @@ ccitt=''
 normalize=''
 threshold='80%'
 offset='15'
+latNum='30'
 color='white'
 side='north'
 sidegiven=''
@@ -129,6 +130,7 @@ while test $# -gt 0; do
       ;;
     -png)
       png=true
+      outputFormat=' -png '
       shift
       ;;
     -gray)
@@ -510,15 +512,15 @@ then
 	input_name=${input_name%%.*}
 	if [[ $twice = true ]]
 	then
-	  unpaper $unpaperOptions -l $layout -op 1 "$i" "$dir/$unpaper2dir/$input_name".pgm 1>/dev/null
-	  unpaper $unpaperOptions -l $layout -op 2 "$dir/$unpaper2dir/$input_name".pgm "$dir/$unpaperdir/$output-$l-%03d".pgm 1>/dev/null
+	  unpaper $unpaperOptions -t pgm -l $layout -op 1 "$i" "$dir/$unpaper2dir/$input_name".pgm 1>/dev/null
+	  unpaper $unpaperOptions -t pgm -l $layout -op 2 "$dir/$unpaper2dir/$input_name".pgm "$dir/$unpaperdir/$output-$l-%03d".pgm 1>/dev/null
 	else
 	  if [[ $op -eq 1 ]]
 	  then
 	    # Keep the same file name when image has a single page on it
-        unpaper $unpaperOptions -l $layout -op $op "$i" "$dir/$unpaperdir/$output-$l".pgm 1>/dev/null
+        unpaper $unpaperOptions -t pgm -l $layout -op $op "$i" "$dir/$unpaperdir/$output-$l".pgm 1>/dev/null
       else
-        unpaper $unpaperOptions -l $layout -op $op "$i" "$dir/$unpaperdir/$output-$l"-%03d.pgm 1>/dev/null
+        unpaper $unpaperOptions -t pgm -l $layout -op $op "$i" "$dir/$unpaperdir/$output-$l"-%03d.pgm 1>/dev/null
 	  fi
 	fi
     ((j++))
@@ -588,7 +590,7 @@ then
 	do
 	  k="00$j"
 	  l=${k: -3}
-	  magick "$i" -colorspace gray \( +clone -lat 30x30-$offset% -negate \) -compose divide_src -composite $pngOpts $depthSet +repage -white-threshold 90% "$dir/$bgcleandir/$output"-$l.$extension 1>/dev/null
+	  magick "$i" -colorspace gray \( +clone -lat "$latNum"x"$latNum"-$offset% -negate \) -compose divide_src -composite $pngOpts $depthSet +repage  "$dir/$bgcleandir/$output"-$l.$extension 1>/dev/null
 	  ((j++))
 	done
   origin_dir="$dir/$bgcleandir"
@@ -658,26 +660,28 @@ then
 	fileh=`magick "$i" -ping +repage -layers trim-bounds -delete 1--1 -format %H info:`
 	if [[ $sizegiven == true ]]
 	then
-	  w=`echo $size | sed 's/x.*//'`
+    w=`echo $size | sed 's/x.*//'`
 	  h=`echo $size | sed 's/.*x//'`
 	  if [[ w -lt filew ]]
 	  then
-		echo -e "\aWarning: entered width is less than the original files'. Aborting."
-		exit 0
+		  echo -e "\aWarning: entered width is less than the original files'. Aborting."
+		  exit 0
 	  fi
 	  if [[ h -lt fileh ]]
 	  then
-		echo -e "\aWarning: entered height is less than the original files'. Aborting."
-		exit 0
+		  echo -e "\aWarning: entered height is less than the original files'. Aborting."
+		  exit 0
 	  fi
-	else
-	  if [[ $enlarge == true ]]
-	  then
+	elif [[ $enlarge == true ]]
+	then
 		wd=$(( filew / 20 ))
 		hd=$(( fileh / 20 ))
 		w=$(( filew + wd * 2 ))
 		h=$(( fileh + hd * 2 ))
-	  fi
+  elif [[  $max != true ]]
+  then
+      w=$filew
+      h=$fileh
 	fi
 	# Create new directory & save converted files in it
 	# Put existing file 5% down from the top of the background page by default
