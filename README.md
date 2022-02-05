@@ -2,6 +2,18 @@
 
 Just some other scripts that aren't Apple.
 
+- ccitt2tiff.sh: uses fax2tiff to convert all the ccitt/param file pairs in a directory to tiff files, moving both sets of files into new subdirectories for neatness.
+
+- convert_pdf: Use pdfimages to get the right dpi for a PDF and pass that along to convert.
+
+- clean_and_ocr_PDF.sh: replace the OCR in an existing PDF. You can choose to keep the original first page with its text. This leaves the original PDF otherwise the same. Good for cleaning up those JSTOR files with horrible OCR. It will also call pdf_remove_metadata.py to remove the metadata except for author and title.
+
+- fix_scans.sh: Offers a whole bunch of cleaning options for image files. Good for poor scans.
+
+- ocr_images.sh: Performs OCR on a series of image files and then dumps them all into a single PDF which is scaled to fit on both US Letter and A4 paper (8x10.5" max size). Replaced by using img2pdf followed by ocrmypdf.
+
+- pdf_remove_metadata.py: uses pikepdf to remove all the metadata from a PDF, optionally keeping author and title.
+
 - wikitbl.pl: a perl script that converts simple text tables to wikipedia-style tables.
 
         SYNOPSIS
@@ -26,13 +38,5 @@ Just some other scripts that aren't Apple.
         If no output file is indicated, the output will go to STDOUT.
         
     Still to do: provide option for one-line-per-cell style.
-
-- convert_pdf: Use pdfimages to get the right dpi for a PDF and pass that along to convert.
-
-- clean_and_ocr_PDF.sh: replace the OCR in an existing PDF. You can choose to keep the original first page with its text. This leaves the original PDF otherwise the same. Good for cleaning up those JSTOR files with horrible OCR.
-
-- fix_scans.sh: Offers a whole bunch of cleaning options for image files. Good for poor scans.
-
-- ocr_images.sh: Performs OCR on a series of image files and then dumps them all into a single PDF which is scaled to fit on both US Letter and A4 paper (8x10.5" max size).
 
 - zotero_s_and_r.js: a javascript that does a search and replace in Zotero, using the Execute JS add-on for FireFox. See <https://forums.zotero.org/discussion/7707/1/find-and-replace-on-multiple-items/>.
