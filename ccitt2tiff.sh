@@ -61,7 +61,6 @@ do
   then
     echo "No encoding specified in parameter file."
   fi
-  #echo      -o "$dest_dir"/"$k".tiff `cat "$j".params` "$output_param" "$i"
   fax2tiff -o "$dest_dir"/"$k".tiff `cat "$j".params` $output_param "$i"
   mv "$i" "$orig_dir"/
   mv "$j.params" "$orig_dir"/
