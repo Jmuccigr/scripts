@@ -5,7 +5,7 @@ dir_path=$(dirname $0)
 # Get length so final finalname is not too long
 ldate=`echo ${#datestring}`
 maxl=`expr 255 - $ldate`
-tmpdir=`echo $TMPDIR`
+tmpdir=`echo ${TMPDIR:-/tmp}`
 keepfirst=false
 lang=""
 
@@ -22,6 +22,8 @@ while test $# -gt 0; do
       echo ""
       echo "This script will remove existing text in a PDF and then perform OCR and"
       echo "add that text to it the original."
+      echo ""
+      echo "The original file is left alone and a new file is created with a datestamped name."
       echo ""
       echo "options:"
       echo "-h, --help     Show this brief help."
@@ -104,7 +106,7 @@ fi
 inputclean="$input"
 # exiftool won't overwrite an existing file, so give output a unique name
 input="$tmpdir"input_"$datestring".pdf
-exiftool -q -q "$inputclean" -all='' -o "$input" 
+exiftool -q -q "$inputclean" -all='' -o "$input"
 
 # strip text from the PDF
 python3 "$dir_path/remove_PDF_text.py" "$input" "$tmpdir/no_text.pdf"
@@ -141,5 +143,7 @@ else
   mv "$tmpdir/final.pdf" "$origdir"/"$final"
 fi
 
-terminal-notifier -message "Your OCR is complete." -title "Yay!" -sound default
-
+if [[ $(uname) == 'Darwin' ]]
+then
+    terminal-notifier -message "Your OCR is complete." -title "Yay!" -sound default
+fi
