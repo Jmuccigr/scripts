@@ -8,7 +8,7 @@ f="My Library.json"
 if [ ! -s "$dest/$f" ]
 then
     #echo 'Darn it' | mail -s 'Zotero export failed' "$me"
-    /usr/local/bin/terminal-notifier -message "Zotero export failed." -title "Zotero"
+    /opt/homebrew/bin/terminal-notifier -message "Zotero export failed." -title "Zotero"
     echo "$(date +%Y-%m-%d\ %H:%M:%S) Zotero export has failed." 1>&2
     if [ -e "$dest/$f" ]
     then
