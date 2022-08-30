@@ -6,13 +6,13 @@ Just some other scripts that aren't Apple.
 
 - convert_pdf: Use pdfimages to get the right dpi for a PDF and pass that along to convert.
 
-- clean_and_ocr_PDF.sh: replace the OCR in an existing PDF. You can choose to keep the original first page with its text. This leaves the original PDF otherwise the same. Good for cleaning up those JSTOR files with horrible OCR. It will also call pdf_remove_metadata.py to remove the metadata except for author and title.
-
 - fix_scans.sh: Offers a whole bunch of cleaning options for image files. Good for poor scans.
 
 - ocr_images.sh: Performs OCR on a series of image files and then dumps them all into a single PDF which is scaled to fit on both US Letter and A4 paper (8x10.5" max size). Replaced by using img2pdf followed by ocrmypdf.
 
 - pdf_remove_metadata.py: uses pikepdf to remove all the metadata from a PDF, optionally keeping author and title.
+
+- redo_ocr.sh: redoes the OCR on an existing PDF, preserving the first page and some metadata, if you like. Uses qpdf, ocrmypdf, and tesseract to do the actual work. Good for cleaning up those JSTOR files with horrible OCR.
 
 - wikitbl.pl: a perl script that converts simple text tables to wikipedia-style tables.
 
