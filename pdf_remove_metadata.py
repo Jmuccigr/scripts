@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3
+#!/opt/homebrew/bin/python3
 
 import sys
 import pikepdf
@@ -15,11 +15,9 @@ args = parser.parse_args()
 author = ''
 title = ''
 
-
 pdf = pikepdf.open(args.filename)
 
 if args.keep:
-	print('here')
 	doc = pdf.docinfo
 
 	for key, value in doc.items():
@@ -34,7 +32,7 @@ if args.keep:
 	meta = pdf.open_metadata()
 
 	if author == '':
-		try:		
+		try:
 			author = meta['pdf:Author']
 		except KeyError:
 			try:
@@ -43,7 +41,7 @@ if args.keep:
 				pass
 
 	if title == '':
-		try:		
+		try:
 			author = meta['pdf:Title']
 		except KeyError:
 			try:
@@ -62,7 +60,7 @@ except KeyError:
 
 with pdf.open_metadata(set_pikepdf_as_editor=False) as meta:
 	if author != '':
-		meta['dc:creator'] = {author}
+		meta['dc:creator'] = author
 		# print('author')
 	if title != '':
 		meta['dc:title'] = title
