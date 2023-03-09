@@ -10,9 +10,12 @@ ipdf = PdfReader(open(filename, 'rb'))
 
 #for i in range(ipdf.getNumPages()):
 for i in range(len(ipdf.pages)):
-	page = ipdf.pages[i]
-	output.add_page(page)
-	output.remove_text
+    page = ipdf.pages[i]
+    output.add_page(page)
+
+output.remove_text()
+
 
 with open(outputname, 'wb') as f:
    output.write(f)
+
