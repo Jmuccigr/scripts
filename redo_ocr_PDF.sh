@@ -1,11 +1,11 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 datestring=`date +%Y-%m-%d_%H.%M.%S`
 dir_path=$(dirname $0)
 # Get length so final finalname is not too long
 ldate=`echo ${#datestring}`
 maxl=`expr 255 - $ldate`
-tmpdir=`echo ${TMPDIR:-/tmp}`
+tmpdir=`echo ${TMPDIR:-/tmp/}`
 keepfirst=false
 lang=""
 
