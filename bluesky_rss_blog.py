@@ -21,24 +21,21 @@ BLUESKY_HANDLE_FILE = "bluesky_handle.txt"
 FEED_URL = "https://jmuccigr.github.io/feed.xml"
 BLUESKY_API_ENDPOINT = "https://bsky.social/xrpc/com.atproto.repo.createRecord"
 
-def compare_post_dates(post_date):
+def compare_post_dates(post_date, check_file):
 
-    latest_post_date = datetime.strptime(post_date, "%Y-%m-%dT%H:%M:%S%z")
-
-    # Check for the lastest published date.
-    filename = check_file
-
+    # Check the file for the lastest published date.
     # Report error & set an absurdly early date if the file doesn't exist
-    if not os.path.isfile(filename):
+    if not os.path.isfile(check_file):
         pubdate="1900-01-01T00:00:01+00:00"
-        with open(filename, 'x') as file:
+        with open(check_file, 'x') as file:
             file.write(pubdate)
-        print(latest_post_date + " Blog post check file does not exist", file=sys.stderr)
+        print(timestamp + " Blog post check file does not exist", file=sys.stderr)
     else:
         # Open the file and read the date of the last published blog post.
-        f = open(filename, "r")
+        f = open(check_file, "r")
         pubdate = f.readlines()[0].replace("\n", "")
 
+    latest_post_date = datetime.strptime(post_date, "%Y-%m-%dT%H:%M:%S%z")
     last_published_date = datetime.strptime(pubdate, "%Y-%m-%dT%H:%M:%S%z")
     if latest_post_date > last_published_date:
         return latest_post_date  # latest post is newer
@@ -130,11 +127,11 @@ def publish_on_bluesky(post_structure, did, key):
 
     return response
 
-def bluesky_rss_bot(app_password):
+def bluesky_rss_bot(app_password, check_file):
     # Fetch content from the RSS feed
     post_title, post_link, post_date = get_rss_content()
     # Only do something if the latest post is newer than the last published one
-    response=compare_post_dates(post_date)
+    response=compare_post_dates(post_date, check_file)
     if response:
         # Authenticate and obtain necessary credentials
         did = get_did()
@@ -146,35 +143,37 @@ def bluesky_rss_bot(app_password):
         with open(check_file, 'w') as f:
             f.write(post_date)
         # Optional: Return the response or post ID for logging or further actions
-        print(response + " Published latest blog post to Bluesky", file=sys.stderr)
+        print(timestamp + " Published latest blog post to Bluesky", file=sys.stderr)
         return bluesky_reply
     else:
-        print(now + " Latest blog post already published", file=sys.stderr)
+        print(timestamp + " Latest blog post already published", file=sys.stderr)
         return "No need to post."
 
 def main():
     global now
     global check_file
     global handle
+    global timestamp
 
     userpath=(re.sub("^(.+/Documents/).*", r"\1", os.path.dirname(os.path.realpath(__file__))))
     # Get the right timestamp
     now=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    timestamp=(f'{datetime.now():%Y-%m-%d %H:%M:%S%z}')
     user=os.getlogin()
     check_file = userpath + CHECK_FILE
     pw_file = userpath + BLUESKY_PW_FILE
     handle_file=userpath + BLUESKY_HANDLE_FILE
     if not os.path.isfile(pw_file):
-        print(now + " Bluesky password file does not exist", file=sys.stderr)
+        print(timestamp + " Bluesky password file does not exist", file=sys.stderr)
     elif not os.path.isfile(handle_file):
-        print(now + " Bluesky handle file does not exist", file=sys.stderr)
+        print(timestamp + " Bluesky handle file does not exist", file=sys.stderr)
     else:
         # Do the work.
         f = open(pw_file, "r")
         app_pw = f.readlines()[0].replace("\n", "")
         f = open(handle_file, "r")
         handle = f.readlines()[0].replace("\n", "")
-        response = bluesky_rss_bot(app_pw)
+        response = bluesky_rss_bot(app_pw, check_file)
 #         print( response)
 
 if __name__ == "__main__":
