@@ -1,11 +1,10 @@
 #!/Users/john_muccigrosso/.venv/bin/python3
 
 # A script to check an RSS feed and share the latest new entry on Bluesky.
-# Guts of it are from <https://sperea.es/blog/bot-bluesky-rss>.
-# I added in the required createdAt and also pushed some constants into
-# files for privacy.
-#
-# Really need to use atproto.
+# Guts of it are from <https://sperea.es/blog/bot-bluesky-rss>, but now
+# with sigificant upgrades, including the use of the atproto library.
+# It logs both success and failure.
+# I also pushed some constants into files for privacy.
 
 import feedparser
 import urllib3
@@ -15,6 +14,7 @@ from datetime import datetime, timezone
 import time
 import sys
 import re
+from atproto import Client, client_utils
 
 # Constants
 CHECK_FILE = "zotero_date.txt"
@@ -24,10 +24,10 @@ MAX_POSTS = 3
 # In this case I can limit the length of the returned feed 
 FEED_URL = "https://api.zotero.org/users/493397/items/top?start=0&limit=" + MAX_POSTS.__str__() + "format=atom&v=3"
 BLUESKY_API_ENDPOINT = "https://bsky.social/xrpc/com.atproto.repo.createRecord"
-API_KEY_URL = "https://bsky.social/xrpc/com.atproto.server.createSession"  # The endpoint to request the API key
+API_KEY_URL = "https://bsky.social/xrpc/com.atproto.server.createSession" # The endpoint to request the API key
 DELAY = 5 #in seconds
 
-def compare_post_dates(post_date, check_file):
+def compare_post_dates(post_date):
     global pubdate
 
     # If not already done, check the file for the lastest published date.
@@ -50,31 +50,6 @@ def compare_post_dates(post_date, check_file):
     else:
         return False # last published is newer
 
-def get_did():
-    http = urllib3.PoolManager()
-    DID_URL = "https://bsky.social/xrpc/com.atproto.identity.resolveHandle"
-    did_resolve = http.request("GET", DID_URL, fields={"handle": handle})
-    return json.loads(did_resolve.data)["did"]
-
-def get_api_key(did, app_password):
-    http = urllib3.PoolManager()  # Initializes a pool manager for HTTP requests
-
-    # Data to be sent to the server
-    post_data = {
-        "identifier": did,  # The user's DID
-        "password": app_password  # The app password generated earlier
-    }
-
-    headers = {
-        "Content-Type": "application/json"  # Specifies the format of the data being sent
-    }
-
-    # Send a POST request with the required data to obtain the API key
-    api_key_response = http.request("POST", API_KEY_URL, headers=headers, body=json.dumps(post_data))
-
-    # Parse the response to extract the API key
-    return json.loads(api_key_response.data)["accessJwt"]
-
 def get_rss_content():
 
     ct=0
@@ -90,15 +65,13 @@ def get_rss_content():
             post_link = entry.link
             # Using published time, but updated time might be better in some situations
             post_date = entry.published
-            response=compare_post_dates(post_date, check_file)
+            response=compare_post_dates(post_date)
             if response:
                 ct += 1
                 temp = dict()
                 temp["title"] = post_title
                 temp["link"] = post_link
                 validEntries.append(temp)
-    # You can further expand this by including other details like the post's published date,
-    # author, summary, etc., depending on your needs.
 
     #return latest_post_title, latest_post_link, latest_post_date
     if ct > 0:
@@ -107,79 +80,23 @@ def get_rss_content():
         return False
 
 def prepare_post_for_bluesky(title, link):
-    """Convert the RSS content into a format suitable for Bluesky."""
+    # Convert the RSS item into a format suitable for Bluesky.
 
-    global now
-    
-    # The post's body text
-    post_text = f"Recently noted...\n\n{title}\n\nSee it in my Zotero library"
-    # Handle any links
-    if link != "":
-        link_end = len(post_text)
-        link_start = link_end - len("my Zotero library")
-    
-        # The post structure for Bluesky
-        # The facet assumes that there are no two-byte unicode characters.
-        post_structure = {
-          "text": post_text,
-          "createdAt": now,
-          "facets": [
-            {
-              "index": {
-                "byteStart": link_start,
-                "byteEnd": link_end
-              },
-              "features": [
-                {
-                  "$type": "app.bsky.richtext.facet#link",
-                  "uri": link
-                }
-              ]
-            }
-          ]
-        }
-    else:
-        post_structure = {
-          "text": post_text,
-          "createdAt": now
-        }
+    short_title=title[0:240]
 
-    return post_structure
+    tb = client_utils.TextBuilder()
+    tb.text("Recently noted...\n\n" + short_title + "\n\nSee it in ")
+    tb.link("my Zotero library", link)
+    tb.text(".")
 
-def publish_on_bluesky(post_structure, did, key):
-    """Publish the structured post on Bluesky."""
+    return tb
 
-    http = urllib3.PoolManager()   # Initializes a pool manager for HTTP requests
-    post_feed_url = BLUESKY_API_ENDPOINT  # The endpoint to post on Bluesky
-
-    # The complete record for the Bluesky post, including our structured content
-    post_record = {
-        "collection": "app.bsky.feed.post",
-        "repo": did,    # The unique DID of our account
-        "record": post_structure
-    }
-
-    headers = {
-        "Content-Type": "application/json",       # Specifies the format of the data being sent
-        "Authorization": f"Bearer {key}"          # The API key for authenticated posting
-    }
-
-    # Send a POST request to publish the post on Bluesky
-    post_request = http.request("POST", post_feed_url, body=json.dumps(post_record), headers=headers)
-
-    # Parse the response for any necessary information, such as post ID or confirmation status
-    response = json.loads(post_request.data)
-
-    return response
-
-def bluesky_rss_bot(app_password, check_file):
+def bluesky_rss_bot(app_password, client):
     # Fetch content from the RSS feed
     validEntries = get_rss_content()
     # Only do something if there are valid entries
     if validEntries:
         # Authenticate and obtain necessary credentials
-        did = get_did()
-        key = get_api_key(did, app_password)
         ct=0
         # Prepare the fetched content for Bluesky
         for entry in validEntries:
@@ -187,9 +104,9 @@ def bluesky_rss_bot(app_password, check_file):
             if ct > 0:
                 time.sleep(DELAY)
             ct += 1
-            post_structure = prepare_post_for_bluesky(entry['title'], entry['link'])
+            post_structure = prepare_post_for_bluesky(entry["title"], entry["link"])
             # Publish the content on Bluesky
-            bluesky_reply = publish_on_bluesky(post_structure, did, key)
+            bluesky_reply = bluesky_reply + client.send_post(post_structure)
         print(timestamp + " Published latest Zotero items to Bluesky", file=sys.stderr)
         return bluesky_reply
     else:
@@ -197,7 +114,6 @@ def bluesky_rss_bot(app_password, check_file):
         return "No need to post."
 
 def main():
-    global now
     global check_file
     global handle
     global timestamp
@@ -205,10 +121,9 @@ def main():
 
     pubdate=""
 
-    # Get a timestamp for log entries
-    now=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    # Get timestamps for log entries and comparison
     timestamp =(f'{datetime.now():%Y-%m-%d %H:%M:%S%z}')
-    check_date=datetime.now(timezone.utc).isoformat(sep='T', timespec='seconds')
+    check_date=datetime.now(timezone.utc).isoformat(sep="T", timespec="seconds")
     # Get needed info from files. Adjust userpath as needed.
     userpath=(re.sub("^(.+/Documents/).*", r"\1", os.path.dirname(os.path.realpath(__file__))))
     check_file = userpath + CHECK_FILE
@@ -225,13 +140,19 @@ def main():
         f = open(handle_file, "r")
         handle = f.readlines()[0].replace("\n", "")
         # Do the actual work
-        response = bluesky_rss_bot(app_pw, check_file)
-        # Finish by writing the date to file for next run
-        with open(check_file, 'w') as f:
-            f.write(check_date)
-#         print( response)
+        client = Client()
+        try:
+            client.login(handle, app_pw)
+        except:
+            print(timestamp + " Problem logging into Bluesky", file=sys.stderr)
+            # Trapping this, but not doing anything with it now
+            e = sys.exc_info()[1]
+        else:
+            response = bluesky_rss_bot(app_pw, client)
+            # Finish by writing the date to file for next run
+            with open(check_file, 'w') as f:
+                f.write(check_date)
+            print( response)
 
 if __name__ == "__main__":
     main()
-
-# Success: {'uri': 'at://did:plc:mocpqererjufnog5yrnijjeq/app.bsky.feed.post/3lb7u64vnsy2p', 'cid': 'bafyreiez74qeannl4an7rv6gbwfln2goi6plkh6peaqdw7vv3mksljxck4', 'commit': {'cid': 'bafyreicqvwxxwexcnegn4gqmebqo334f6zc2znsinlintkgijglbeii5ym', 'rev': '3lb7u64vspa2p'}, 'validationStatus': 'valid'}
