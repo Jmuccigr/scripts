@@ -4,6 +4,8 @@
 # Guts of it are from <https://sperea.es/blog/bot-bluesky-rss>.
 # I added in the required createdAt and also pushed some constants into
 # files for privacy.
+#
+# Really need to use atproto.
 
 import feedparser
 import urllib3
@@ -22,6 +24,7 @@ MAX_POSTS = 3
 # In this case I can limit the length of the returned feed 
 FEED_URL = "https://api.zotero.org/users/493397/items/top?start=0&limit=" + MAX_POSTS.__str__() + "format=atom&v=3"
 BLUESKY_API_ENDPOINT = "https://bsky.social/xrpc/com.atproto.repo.createRecord"
+API_KEY_URL = "https://bsky.social/xrpc/com.atproto.server.createSession"  # The endpoint to request the API key
 DELAY = 5 #in seconds
 
 def compare_post_dates(post_date, check_file):
@@ -55,7 +58,6 @@ def get_did():
 
 def get_api_key(did, app_password):
     http = urllib3.PoolManager()  # Initializes a pool manager for HTTP requests
-    API_KEY_URL = "https://bsky.social/xrpc/com.atproto.server.createSession"  # The endpoint to request the API key
 
     # Data to be sent to the server
     post_data = {
@@ -110,17 +112,37 @@ def prepare_post_for_bluesky(title, link):
     global now
     
     # The post's body text
-    post_text = f"Recently noted...\n\n{title}\n\nin my Zotero library: {link}"
-
-    # The post structure for Bluesky
-    post_structure = {
-        "text": post_text,
-        "embed": {
-            "$type": "app.bsky.embed.links",   # Bluesky's format for embedding links
-            "links": [link]
-        },
-        "createdAt": now
-    }
+    post_text = f"Recently noted...\n\n{title}\n\nSee it in my Zotero library"
+    # Handle any links
+    if link != "":
+        link_end = len(post_text)
+        link_start = link_end - len("my Zotero library")
+    
+        # The post structure for Bluesky
+        # The facet assumes that there are no two-byte unicode characters.
+        post_structure = {
+          "text": post_text,
+          "createdAt": now,
+          "facets": [
+            {
+              "index": {
+                "byteStart": link_start,
+                "byteEnd": link_end
+              },
+              "features": [
+                {
+                  "$type": "app.bsky.richtext.facet#link",
+                  "uri": link
+                }
+              ]
+            }
+          ]
+        }
+    else:
+        post_structure = {
+          "text": post_text,
+          "createdAt": now
+        }
 
     return post_structure
 
@@ -135,7 +157,6 @@ def publish_on_bluesky(post_structure, did, key):
         "collection": "app.bsky.feed.post",
         "repo": did,    # The unique DID of our account
         "record": post_structure
-
     }
 
     headers = {
