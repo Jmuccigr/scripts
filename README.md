@@ -2,7 +2,15 @@
 
 Just some other scripts that aren't Apple.
 
+- anystyle.rb: uses anystyle to extract a formatted reference from text
+
+- bluesky_rss_blog.py: Posts to Bluesky the most recent item from an RSS feed, assuming that it hasn't already been posted. Right now the feed is hardcoded in there, but in theory it could take it as an argument.
+
+- bluesky_rss_zotero.py: Posts to Bluesky the most recent X items from an RSS feed, assuming that they haven't already been posted. Right now the feed is hardcoded in there, but in theory it could take it as an argument.
+
 - ccitt2tiff.sh: uses fax2tiff to convert all the ccitt/param file pairs in a directory to tiff files, moving both sets of files into new subdirectories for neatness.
+
+- check_dovecot.sh: checks to see that dovecot is running as a service
 
 - convert_pdf: Use pdfimages to get the right dpi for a PDF and pass that along to convert.
 
@@ -38,5 +46,9 @@ Just some other scripts that aren't Apple.
         If no output file is indicated, the output will go to STDOUT.
         
     Still to do: provide option for one-line-per-cell style.
+
+- zot2obsidian.sh: Creates note files and then checks for mis-matches in the Obsidian vault for all Zotero entries, skipping files created by the Obsidian-Zotero plugin.
+
+- zotero_check_tags.sh: checks for mis-matches between tags in Zotero and in the Obsidian vault files created by the Obsidian-Zotero plugin.
 
 - zotero_s_and_r.js: a javascript that does a search and replace in Zotero, using the Execute JS add-on for FireFox. See <https://forums.zotero.org/discussion/7707/1/find-and-replace-on-multiple-items/>.
