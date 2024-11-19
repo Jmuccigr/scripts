@@ -18,22 +18,27 @@ import re
 CHECK_FILE = "zotero_date.txt"
 BLUESKY_PW_FILE = "bluesky_app_password.txt"
 BLUESKY_HANDLE_FILE = "bluesky_handle.txt"
-FEED_URL = "https://api.zotero.org/users/493397/items/top?format=atom&v=3"
+MAX_POSTS = 3
+# In this case I can limit the length of the returned feed 
+FEED_URL = "https://api.zotero.org/users/493397/items/top?start=0&limit=" + MAX_POSTS.__str__() + "format=atom&v=3"
 BLUESKY_API_ENDPOINT = "https://bsky.social/xrpc/com.atproto.repo.createRecord"
+DELAY = 5 #in seconds
 
 def compare_post_dates(post_date, check_file):
+    global pubdate
 
-    # Check the file for the lastest published date.
+    # If not already done, check the file for the lastest published date.
     # Report error & set an absurdly early date if the file doesn't exist
-    if not os.path.isfile(check_file):
-        pubdate="1900-01-01T00:00:01+00:00"
-        with open(check_file, 'x') as file:
-            file.write(pubdate)
-        print(timestamp + "Zotero item check file does not exist", file=sys.stderr)
-    else:
-        # Open the file and read the date of the last published Zotero item.
-        f = open(check_file, "r")
-        pubdate = f.readlines()[0].replace("\n", "")
+    if pubdate == "":
+        if not os.path.isfile(check_file):
+            pubdate="1900-01-01T00:00:01+00:00"
+            with open(check_file, 'x') as file:
+                file.write(pubdate)
+            print(timestamp + "Zotero item check file does not exist", file=sys.stderr)
+        else:
+            # Open the file and read the date of the last published Zotero item.
+            f = open(check_file, "r")
+            pubdate = f.readlines()[0].replace("\n", "")
 
     latest_post_date = datetime.strptime(post_date, "%Y-%m-%dT%H:%M:%S%z")
     last_published_date = datetime.strptime(pubdate, "%Y-%m-%dT%H:%M:%S%z")
@@ -70,21 +75,40 @@ def get_api_key(did, app_password):
 
 def get_rss_content():
 
+    ct=0
     # Parse the RSS feed
     feed = feedparser.parse(FEED_URL)
-    # If you plan to post the latest content, it's usually the first entry in the feed
-    latest_post_title = feed.entries[0].title
-    latest_post_link = feed.entries[0].link
-    latest_post_date = feed.entries[0].updated
 
+    validEntries=[]
+    # Iterate through the entries in the feed until we have enough or they're exhausted
+    max_posts=min(MAX_POSTS, len(feed.entries))
+    for entry in feed.entries:
+        if ct < max_posts:
+            post_title = entry.title
+            post_link = entry.link
+            # Using published time, but updated time might be better in some situations
+            post_date = entry.published
+            response=compare_post_dates(post_date, check_file)
+            if response:
+                ct += 1
+                temp = dict()
+                temp["title"] = post_title
+                temp["link"] = post_link
+                validEntries.append(temp)
     # You can further expand this by including other details like the post's published date,
     # author, summary, etc., depending on your needs.
 
-    return latest_post_title, latest_post_link, latest_post_date
+    #return latest_post_title, latest_post_link, latest_post_date
+    if ct > 0:
+        return validEntries
+    else:
+        return False
 
 def prepare_post_for_bluesky(title, link):
     """Convert the RSS content into a format suitable for Bluesky."""
 
+    global now
+    
     # The post's body text
     post_text = f"Recently noted...\n\n{title}\n\nin my Zotero library: {link}"
 
@@ -129,21 +153,23 @@ def publish_on_bluesky(post_structure, did, key):
 
 def bluesky_rss_bot(app_password, check_file):
     # Fetch content from the RSS feed
-    post_title, post_link, post_date = get_rss_content()
-    # Only do something if the latest post is newer than the last published one
-    response=compare_post_dates(post_date, check_file)
-    if response:
+    validEntries = get_rss_content()
+    # Only do something if there are valid entries
+    if validEntries:
         # Authenticate and obtain necessary credentials
         did = get_did()
         key = get_api_key(did, app_password)
+        ct=0
         # Prepare the fetched content for Bluesky
-        post_structure = prepare_post_for_bluesky(post_title, post_link)
-        # Publish the content on Bluesky & reset stored date
-        bluesky_reply = publish_on_bluesky(post_structure, did, key)
-        with open(check_file, 'w') as f:
-            f.write(post_date)
-        # Optional: Return the response or post ID for logging or further actions
-        print(timestamp + " Published latest Zotero item to Bluesky", file=sys.stderr)
+        for entry in validEntries:
+            # Wait a little if posting more than one entry
+            if ct > 0:
+                time.sleep(DELAY)
+            ct += 1
+            post_structure = prepare_post_for_bluesky(entry['title'], entry['link'])
+            # Publish the content on Bluesky
+            bluesky_reply = publish_on_bluesky(post_structure, did, key)
+        print(timestamp + " Published latest Zotero items to Bluesky", file=sys.stderr)
         return bluesky_reply
     else:
         print(timestamp + " Latest Zotero item already published", file=sys.stderr)
@@ -154,12 +180,16 @@ def main():
     global check_file
     global handle
     global timestamp
+    global pubdate
 
-    userpath=(re.sub("^(.+/Documents/).*", r"\1", os.path.dirname(os.path.realpath(__file__))))
-    # Get the right timestamp
+    pubdate=""
+
+    # Get a timestamp for log entries
     now=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    timestamp=(f'{datetime.now():%Y-%m-%d %H:%M:%S%z}')
-    user=os.getlogin()
+    timestamp =(f'{datetime.now():%Y-%m-%d %H:%M:%S%z}')
+    check_date=datetime.now(timezone.utc).isoformat(sep='T', timespec='seconds')
+    # Get needed info from files. Adjust userpath as needed.
+    userpath=(re.sub("^(.+/Documents/).*", r"\1", os.path.dirname(os.path.realpath(__file__))))
     check_file = userpath + CHECK_FILE
     pw_file = userpath + BLUESKY_PW_FILE
     handle_file=userpath + BLUESKY_HANDLE_FILE
@@ -168,12 +198,16 @@ def main():
     elif not os.path.isfile(handle_file):
         print(timestamp + " Bluesky handle file does not exist", file=sys.stderr)
     else:
-        # Do the work.
+        # Get needed info from files
         f = open(pw_file, "r")
         app_pw = f.readlines()[0].replace("\n", "")
         f = open(handle_file, "r")
         handle = f.readlines()[0].replace("\n", "")
+        # Do the actual work
         response = bluesky_rss_bot(app_pw, check_file)
+        # Finish by writing the date to file for next run
+        with open(check_file, 'w') as f:
+            f.write(check_date)
 #         print( response)
 
 if __name__ == "__main__":
