@@ -3,11 +3,13 @@
 # A script to check an RSS feed and share the latest new entry on Bluesky.
 # Guts of it are from <https://sperea.es/blog/bot-bluesky-rss>, but now
 # with sigificant upgrades, including the use of the atproto library.
+# It will grab an image from the rss, defaulting to the feed icon.
 # It logs both success and failure.
 # I also pushed some constants into files for privacy.
 
 import feedparser
 import urllib3
+#from urllib.request import urlopen 
 import json
 import os.path
 from datetime import datetime, timezone
@@ -15,6 +17,11 @@ import time
 import sys
 import re
 from atproto import Client, client_utils
+import sys
+import urllib3 
+from PIL import Image
+import io
+from io import BytesIO
 
 # Constants
 CHECK_FILE = "blogpost_date.txt"
@@ -53,23 +60,34 @@ def get_rss_content():
 
     ct=0
     # Parse the RSS feed
-    feed = feedparser.parse(FEED_URL)
-
+    rssfeed = feedparser.parse(FEED_URL)
+    if hasattr(rssfeed.feed, 'icon'):
+        icon = rssfeed.feed.icon
+    else:
+        icon = ""
     validEntries=[]
     # Iterate through the entries in the feed until we have enough or they're exhausted
-    max_posts=min(MAX_POSTS, len(feed.entries))
-    for entry in feed.entries:
+    max_posts=min(MAX_POSTS, len(rssfeed.entries))
+    for entry in rssfeed.entries:
         if ct < max_posts:
             post_title = entry.title
             post_link = entry.link
-            # Using published time, but updated time might be better in some situations
-            post_date = entry.published
+            if hasattr(entry, 'media_thumbnail'):
+                post_image = entry.media_thumbnail[0]['url']
+                post_image_desc = "Image from the post"
+            else:
+                post_image = icon
+                post_image_desc = "blog icon"
+            # Using updated time
+            post_date = entry.updated
             response=compare_post_dates(post_date)
             if response:
                 ct += 1
                 temp = dict()
                 temp["title"] = post_title
                 temp["link"] = post_link
+                temp["image"] = post_image
+                temp["image_desc"] = post_image_desc
                 validEntries.append(temp)
 
     #return latest_post_title, latest_post_link, latest_post_date
@@ -91,6 +109,7 @@ def prepare_post_for_bluesky(title, link):
     return tb
 
 def bluesky_rss_bot(app_password, client):
+    
     # Fetch content from the RSS feed
     validEntries = get_rss_content()
     # Only do something if there are valid entries
@@ -104,10 +123,25 @@ def bluesky_rss_bot(app_password, client):
                 time.sleep(DELAY)
             ct += 1
             post_structure = prepare_post_for_bluesky(entry["title"], entry["link"])
-            # Publish the content on Bluesky
-            bluesky_reply = bluesky_reply + client.send_post(post_structure)
+            if entry["image"] == "":
+                bluesky_reply = client.send_post(post_structure)
+            else:
+                image_url = entry["image"]
+                http = urllib3.PoolManager()
+                response = http.request("GET", image_url)
+                img_data = response.data
+                if sys.getsizeof(img_data) > 1000000:
+                    print(timestamp + " Bluesky post image is too big: " + entry["image"], file=sys.stderr)
+                    bluesky_reply = client.send_post(post_structure)
+                else:
+                    bluesky_reply = client.send_image(text=post_structure, image=img_data, image_alt=entry["image_desc"])
+            try:
+                reply = reply + bluesky_reply
+            except:
+                reply = bluesky_reply
+
         print(timestamp + " Published latest blog post to Bluesky", file=sys.stderr)
-        return bluesky_reply
+        return reply
     else:
         print(timestamp + " Latest blog post already published", file=sys.stderr)
         return "No need to publish."
@@ -117,6 +151,7 @@ def main():
     global handle
     global timestamp
     global pubdate
+    global userpath
 
     pubdate=""
 
@@ -151,7 +186,8 @@ def main():
             # Finish by writing the date to file for next run
             with open(check_file, 'w') as f:
                 f.write(check_date)
-            print( response)
+                f.close()
+            print(response)
 
 if __name__ == "__main__":
     main()
