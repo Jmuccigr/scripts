@@ -154,7 +154,6 @@ def bluesky_rss_bot(app_password, client):
                 bluesky_reply = client.send_post(post_structure)
             else:
                 image_url = entry["image"]
-                print(image_url)
                 img_data = prepare_image(image_url)
                 if sys.getsizeof(img_data) < 100:
                     print(timestamp + " Bluesky post image couldn't be retrieved", file=sys.stderr)
