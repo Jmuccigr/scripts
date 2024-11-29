@@ -7,21 +7,19 @@
 # It logs both success and failure.
 # I also pushed some constants into files for privacy.
 
-import feedparser
-import urllib3
-#from urllib.request import urlopen 
-import json
-import os.path
-from datetime import datetime, timezone
-import time
-import sys
-import re
 from atproto import Client, client_utils
-import sys
-import urllib3 
+from datetime import datetime, timezone
 from PIL import Image
+import feedparser
 import io
 from io import BytesIO
+import json
+import os.path
+import re
+import sys
+import time
+import urllib3 
+#from urllib.request import urlopen 
 
 # Constants
 CHECK_FILE = "blogpost_date.txt"
@@ -108,8 +106,37 @@ def prepare_post_for_bluesky(title, link):
 
     return tb
 
+def prepare_image(image_url):
+    http = urllib3.PoolManager()
+    try:
+        response = http.request("GET", image_url)
+        status = response.status
+        if (response.status != 200):
+            print(timestamp + " Unable to download image file. Error " + response.status.__str__() + ": " + image_url, file=sys.stderr)
+            return ""
+        img_data = response.data
+        # Using a quick and dirty rule of thumb: images less than dim in size will be
+        # below the size limit for Bluesky. If an image is too big, just shrink it
+        # right away and don't sweat it. Alternative would be to iteratively shrink it
+        # until it's small enough.
+        if (sys.getsizeof(img_data)) > 1000000:
+            img = Image.open(BytesIO(img_data))
+            if img.format in ("JPEG", "GIF"):
+                dim=800
+            else:
+                dim=400
+            img.thumbnail((dim,dim))
+            img_byte_arr = io.BytesIO()
+            img.save(img_byte_arr, format=img.format)
+            img_data = img_byte_arr.getvalue()
+    except:
+        # Log error & return something small
+        print(timestamp + " Unable to get image file: " + image_url, file=sys.stderr)
+        img_data = ""
+        
+    return(img_data)
+
 def bluesky_rss_bot(app_password, client):
-    
     # Fetch content from the RSS feed
     validEntries = get_rss_content()
     # Only do something if there are valid entries
@@ -120,18 +147,17 @@ def bluesky_rss_bot(app_password, client):
         for entry in validEntries:
             # Wait a little if posting more than one entry
             if ct > 0:
-                time.sleep(DELAY)
+                time.sleep(1)
             ct += 1
             post_structure = prepare_post_for_bluesky(entry["title"], entry["link"])
             if entry["image"] == "":
                 bluesky_reply = client.send_post(post_structure)
             else:
                 image_url = entry["image"]
-                http = urllib3.PoolManager()
-                response = http.request("GET", image_url)
-                img_data = response.data
-                if sys.getsizeof(img_data) > 1000000:
-                    print(timestamp + " Bluesky post image is too big: " + entry["image"], file=sys.stderr)
+                print(image_url)
+                img_data = prepare_image(image_url)
+                if sys.getsizeof(img_data) < 100:
+                    print(timestamp + " Bluesky post image couldn't be retrieved", file=sys.stderr)
                     bluesky_reply = client.send_post(post_structure)
                 else:
                     bluesky_reply = client.send_image(text=post_structure, image=img_data, image_alt=entry["image_desc"])
@@ -151,7 +177,6 @@ def main():
     global handle
     global timestamp
     global pubdate
-    global userpath
 
     pubdate=""
 
