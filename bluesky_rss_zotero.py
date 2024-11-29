@@ -3,18 +3,23 @@
 # A script to check an RSS feed and share the latest new entry on Bluesky.
 # Guts of it are from <https://sperea.es/blog/bot-bluesky-rss>, but now
 # with sigificant upgrades, including the use of the atproto library.
+# It will grab an image from the rss, defaulting to the feed icon.
 # It logs both success and failure.
 # I also pushed some constants into files for privacy.
 
+from atproto import Client, client_utils
+from datetime import datetime, timezone
+from PIL import Image
 import feedparser
-import urllib3
+import io
+from io import BytesIO
 import json
 import os.path
-from datetime import datetime, timezone
-import time
-import sys
 import re
-from atproto import Client, client_utils
+import sys
+import time
+import urllib3 
+#from urllib.request import urlopen 
 
 # Constants
 CHECK_FILE = "zotero_date.txt"
@@ -22,7 +27,7 @@ BLUESKY_PW_FILE = "bluesky_app_password.txt"
 BLUESKY_HANDLE_FILE = "bluesky_handle.txt"
 MAX_POSTS = 3
 # In this case I can limit the length of the returned feed 
-FEED_URL = "https://api.zotero.org/users/493397/items/top?start=0&limit=" + MAX_POSTS.__str__() + "format=atom&v=3"
+FEED_URL = "https://api.zotero.org/users/493397/items/top?limit=" + MAX_POSTS.__str__() + "format=atom&v=3"
 BLUESKY_API_ENDPOINT = "https://bsky.social/xrpc/com.atproto.repo.createRecord"
 API_KEY_URL = "https://bsky.social/xrpc/com.atproto.server.createSession" # The endpoint to request the API key
 DELAY = 5 #in seconds
@@ -54,15 +59,24 @@ def get_rss_content():
 
     ct=0
     # Parse the RSS feed
-    feed = feedparser.parse(FEED_URL)
-
+    rssfeed = feedparser.parse(FEED_URL)
+    if hasattr(rssfeed.feed, 'icon'):
+        icon = rssfeed.feed.icon
+    else:
+        icon = ""
     validEntries=[]
     # Iterate through the entries in the feed until we have enough or they're exhausted
-    max_posts=min(MAX_POSTS, len(feed.entries))
-    for entry in feed.entries:
+    max_posts=min(MAX_POSTS, len(rssfeed.entries))
+    for entry in rssfeed.entries:
         if ct < max_posts:
             post_title = entry.title
             post_link = entry.link
+            if hasattr(entry, 'media_thumbnail'):
+                post_image = entry.media_thumbnail[0]['url']
+                post_image_desc = "Image from the post"
+            else:
+                post_image = icon
+                post_image_desc = "blog icon"
             # Using published time, but updated time might be better in some situations
             post_date = entry.published
             response=compare_post_dates(post_date)
@@ -71,6 +85,8 @@ def get_rss_content():
                 temp = dict()
                 temp["title"] = post_title
                 temp["link"] = post_link
+                temp["image"] = post_image
+                temp["image_desc"] = post_image_desc
                 validEntries.append(temp)
 
     #return latest_post_title, latest_post_link, latest_post_date
@@ -91,6 +107,36 @@ def prepare_post_for_bluesky(title, link):
 
     return tb
 
+def prepare_image(image_url):
+    http = urllib3.PoolManager()
+    try:
+        response = http.request("GET", image_url)
+        status = response.status
+        if (response.status != 200):
+            print(timestamp + " Unable to download image file. Error " + response.status.__str__() + ": " + image_url, file=sys.stderr)
+            return ""
+        img_data = response.data
+        # Using a quick and dirty rule of thumb: images less than dim in size will be
+        # below the size limit for Bluesky. If an image is too big, just shrink it
+        # right away and don't sweat it. Alternative would be to iteratively shrink it
+        # until it's small enough.
+        if (sys.getsizeof(img_data)) > 1000000:
+            img = Image.open(BytesIO(img_data))
+            if img.format in ("JPEG", "GIF"):
+                dim=800
+            else:
+                dim=400
+            img.thumbnail((dim,dim))
+            img_byte_arr = io.BytesIO()
+            img.save(img_byte_arr, format=img.format)
+            img_data = img_byte_arr.getvalue()
+    except:
+        # Log error & return something small
+        print(timestamp + " Unable to get image file: " + image_url, file=sys.stderr)
+        img_data = ""
+        
+    return(img_data)
+
 def bluesky_rss_bot(app_password, client):
     # Fetch content from the RSS feed
     validEntries = get_rss_content()
@@ -105,10 +151,23 @@ def bluesky_rss_bot(app_password, client):
                 time.sleep(DELAY)
             ct += 1
             post_structure = prepare_post_for_bluesky(entry["title"], entry["link"])
-            # Publish the content on Bluesky
-            bluesky_reply = bluesky_reply + client.send_post(post_structure)
+            if entry["image"] == "":
+                bluesky_reply = client.send_post(post_structure)
+            else:
+                image_url = entry["image"]
+                img_data = prepare_image(image_url)
+                if sys.getsizeof(img_data) < 100:
+                    print(timestamp + " Bluesky post image couldn't be retrieved", file=sys.stderr)
+                    bluesky_reply = client.send_post(post_structure)
+                else:
+                    bluesky_reply = client.send_image(text=post_structure, image=img_data, image_alt=entry["image_desc"])
+            try:
+                reply = reply + bluesky_reply
+            except:
+                reply = bluesky_reply
+
         print(timestamp + " Published latest Zotero items to Bluesky", file=sys.stderr)
-        return bluesky_reply
+        return reply
     else:
         print(timestamp + " Latest Zotero item already published", file=sys.stderr)
         return "No need to post."
@@ -152,7 +211,8 @@ def main():
             # Finish by writing the date to file for next run
             with open(check_file, 'w') as f:
                 f.write(check_date)
-            print( response)
+                f.close()
+            print(response)
 
 if __name__ == "__main__":
     main()
