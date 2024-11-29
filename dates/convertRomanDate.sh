@@ -3,24 +3,25 @@
 # A script to convert a Roman-style date to a modern style.
 # It accounts for the Julian/Gregorian differences.
 # Not much error-checking, so a nonsensical date like "43 kal Mar" "works".
-# Assumes input is in form "[days-before] named-day month year",
+# Assumes input is in form "[days-before] named-day month [year]",
 # where the days-before starts with a number and trailing text is ignored;
-# named-day starts with k, n, or i (kalends, nones, & ides);
-# month is at least the first three letters of the month name in Latin or English
-# (i.e., "May" and "Mai" are both good); and year is in the modern system.
+# named-day must start with k, n, or i (kalends, nones, & ides);
+# some variations on month names are allowed, including different cases, so
+# month is the first three letters of the month name in Latin or English
+# (i.e., "May" and "Mai" are both good); jan/jen also both work;
+# and year is in the modern system.
 # It's just doing a name change, not trying to find astronomical equivalents.
 # Given a year, it will provide the day of the week using Zeller's Congruence.
 
-mList=("jan" "feb" "mar" "apr" "mai" "jun" "jul" "aug" "sep" "oct" "nov" "dec")
-mListLong=("Jan" "Feb" "Mar" "Apr" "May" "Jun" "Jul" "Aug" "Sep" "Oct" "Nov" "Dec")
-fullMonths=("mar" "mai" "jul" "oct")
+mList=("ian" "feb" "mar" "apr" "mai" "iun" "iul" "aug" "sep" "oct" "nov" "dec")
+mListLong=("January" "February" "March" "April" "May" "June" "July" "August" "September" "October" "November" "December")
+fullMonths=("mar" "mai" "iul" "oct")
 mLength=(31 28 31 30 31 30 31 31 30 31 30 31)
 warn=""
 y=9999
 leapyear=false
 errMsg=""
 
-# args=`echo $@ | tr  '[:upper:]' '[:lower:]'`
 args=$@
 wordCt=$#
 charCt=`echo $@ | wc -c`
@@ -102,9 +103,9 @@ function getDayCount () {
 }
 
 function getNamedDay () {
-  t=$1
+  t=`echo "$1" | tr '[:upper:]' '[:lower:]' | tr -d ' ' | tr -d '.'`
   if [[ ! "kni" =~ ${t:0:1} ]]; then
-    r="The named day in the date string appears to be invalid."
+    errMsg="The named day in the date string appears to be invalid."
     return 0
   fi
   val=1
@@ -127,7 +128,9 @@ function getMonthNumber () {
     errMsg="Month name is too short."
     return 1
   fi
-  cleanmon=`echo $1 | tr '[:upper:]' '[:lower:]' | tr 'y' 'i'`
+  # Allow for non-Latin spellings with i for y and j for i
+  cleanmon=`echo $1 | tr '[:upper:]' '[:lower:]' | tr 'y' 'i' | tr 'j' 'i'`
+  cleanmon=`echo $cleanmon | perl -pe 's/^ien/ian/'`
   cleanmon=${cleanmon:0:3}
   mo=`echo ${mList[@]/$cleanmon//} | cut -d/ -f1 | wc -w | tr -d ' '`
   if [[ $mo -eq 12 ]]; then
@@ -164,7 +167,6 @@ function zeller () {
     dayoftheweek=$(( (q + ( ((13 * ( m + 1 ))) / 5) + K + ( K / 4 ) + ( J / 4 ) - 2*J ) % 7 ))
   fi
   [[ $dayoftheweek -lt 0 ]] && dayoftheweek=$(( 7 + dayoftheweek ))
-  echo -n "$yr "
   weekday=${weekdays[$dayoftheweek]}
 }
 
@@ -215,10 +217,16 @@ fi
 
 # Convert named day to a day of the month (number)
 getNamedDay $namedDay
+if [[ $errMsg != "" ]]; then
+  echo $errMsg
+  exit 1
+fi
 
 # Correct year, month, and day for kalends
 if [[ $namedDay -eq 1 && $d -gt 0 ]]; then
-  [[ $mo -eq 1 ]] && y=$(( y - 1 ))
+  # Uncomment the next line if the year belongs to the month and not the day,
+  # so all Jan dates are with the year that starts after Jan 1
+  # [[ $mo -eq 1 ]] && y=$(( y - 1 ))
   mo=$(( mo - 1 ))
   [[ $mo -eq 0 ]] && mo=12
   namedDay=${mLength[$mo-1]}
@@ -230,14 +238,17 @@ finalDay=$(( namedDay - d ))
 
 # Display date in nice format. Use 9999 (=y) because it's not a leap year.
 # Warn if there's no year given and the date is in late February
-[[ $y == 9999 && $mo -eq 2 && $namedDay -gt 13 ]] && echo "In leap years, add 1 to this date."
+[[ $y == 9999 && $mo -eq 2 && $namedDay -gt 13 ]] && echo -n "In leap years, add 1 to this date: "
 
 # Get the weekday if the year was specified
 [[ y -lt 9999 ]] && zeller $finalDay $mo $y
 
 # This outputs the variables with a zeller lookup
-echo -n $weekday${mListLong[$mo-1]} $finalDay
-[[ $y == 9999 ]] || echo ", $y"
+echo -n $weekday ${mListLong[$mo-1]} $finalDay
+[[ $y == 9999 ]] || echo -n ", $y"
+echo ""
+
+echo ${mListLong[$mo-1]} $finalDay"," $y | pbcopy
 
 # The next part would work if date handled years before 1900
 # if [[ y -lt 9999 ]]; then
