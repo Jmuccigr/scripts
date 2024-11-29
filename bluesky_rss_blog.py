@@ -26,10 +26,11 @@ CHECK_FILE = "blogpost_date.txt"
 BLUESKY_PW_FILE = "bluesky_app_password.txt"
 BLUESKY_HANDLE_FILE = "bluesky_handle.txt"
 MAX_POSTS = 3
+MAX_IMAGE_SIZE = 1000000
 FEED_URL = "https://jmuccigr.github.io/feed.xml"
 BLUESKY_API_ENDPOINT = "https://bsky.social/xrpc/com.atproto.repo.createRecord"
-API_KEY_URL = "https://bsky.social/xrpc/com.atproto.server.createSession" # The endpoint to request the API key
-DELAY = 5 #in seconds
+API_KEY_URL = "https://bsky.social/xrpc/com.atproto.server.createSession"
+POST_DELAY = 5 #in seconds
 
 def compare_post_dates(post_date):
     global pubdate
@@ -76,8 +77,11 @@ def get_rss_content():
             else:
                 post_image = icon
                 post_image_desc = "blog icon"
-            # Using updated time
+
+            # Use only one of the next two lines.
             post_date = entry.updated
+#             post_date = entry.published
+
             response=compare_post_dates(post_date)
             if response:
                 ct += 1
@@ -119,7 +123,7 @@ def prepare_image(image_url):
         # below the size limit for Bluesky. If an image is too big, just shrink it
         # right away and don't sweat it. Alternative would be to iteratively shrink it
         # until it's small enough.
-        if (sys.getsizeof(img_data)) > 1000000:
+        if (sys.getsizeof(img_data)) > MAX_IMAGE_SIZE:
             img = Image.open(BytesIO(img_data))
             if img.format in ("JPEG", "GIF"):
                 dim=800
@@ -147,7 +151,7 @@ def bluesky_rss_bot(app_password, client):
         for entry in validEntries:
             # Wait a little if posting more than one entry
             if ct > 0:
-                time.sleep(DELAY)
+                time.sleep(POST_DELAY)
             ct += 1
             post_structure = prepare_post_for_bluesky(entry["title"], entry["link"])
             if entry["image"] == "":
