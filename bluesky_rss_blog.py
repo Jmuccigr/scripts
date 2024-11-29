@@ -147,7 +147,7 @@ def bluesky_rss_bot(app_password, client):
         for entry in validEntries:
             # Wait a little if posting more than one entry
             if ct > 0:
-                time.sleep(1)
+                time.sleep(DELAY)
             ct += 1
             post_structure = prepare_post_for_bluesky(entry["title"], entry["link"])
             if entry["image"] == "":
