@@ -83,19 +83,23 @@ function convertRoman () {
 }
 
 function getDayCount () {
-  # Get number from start of datestring, assuming p means pridie
+  # Get number from start of datestring; p means pridie, po = postridie
   t=$1
-  if [[ ${t:0:1} == "p" ]]; then
+  if [[ ${t:0:2} == "pr" ]]; then
     d=2
   else
-    if ! [ "$d" -eq "$d" ] 2>/dev/null; then
-      #assume the number is a Roman numeral
-      convertRoman "$t"
-      if [[ "$?" == 0 ]]; then
-        d=$romanValue
-      else
-        echo "Something went wrong with the conversion of "$1" from Roman numerals."
-        exit 1
+    if [[ ${t:0:2} == "po" ]]; then
+      d=0
+    else
+      if ! [ "$d" -eq "$d" ] 2>/dev/null; then
+        #assume the number is a Roman numeral
+        convertRoman "$t"
+        if [[ "$?" == 0 ]]; then
+          d=$romanValue
+        else
+          echo "Something went wrong with the conversion of "$1" from Roman numerals."
+          exit 1
+        fi
       fi
     fi
   fi
