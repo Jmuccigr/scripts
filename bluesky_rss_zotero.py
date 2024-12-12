@@ -25,6 +25,7 @@ import urllib3
 CHECK_FILE = "zotero_date.txt"
 BLUESKY_PW_FILE = "bluesky_app_password.txt"
 BLUESKY_HANDLE_FILE = "bluesky_handle.txt"
+ICON_FILE = "https://jmuccigr.github.io/images/zotero_icon.png"
 MAX_POSTS = 3
 MAX_IMAGE_SIZE = 1000000
 # In this case I can limit the length of the returned feed to save processing time
@@ -50,7 +51,11 @@ def compare_post_dates(post_date):
             pubdate = f.readlines()[0].replace("\n", "")
 
     latest_post_date = datetime.strptime(post_date, "%Y-%m-%dT%H:%M:%S%z")
-    last_published_date = datetime.strptime(pubdate, "%Y-%m-%dT%H:%M:%S%z")
+    try:
+        last_published_date = datetime.strptime(pubdate, "%Y-%m-%dT%H:%M:%S%z")
+    except Exception as e:
+        print(timestamp + " Something wrong with last pub date in local file: " + e.__str__(), file=sys.stderr)
+        sys.exit()
     if latest_post_date > last_published_date:
         return latest_post_date  # latest post is newer
     else:
@@ -64,7 +69,7 @@ def get_rss_content():
     if hasattr(rssfeed.feed, 'icon'):
         icon = rssfeed.feed.icon
     else:
-        icon = ""
+        icon = ICON_FILE
     validEntries=[]
     # Iterate through the entries in the feed until we have enough or they're exhausted
     max_posts=min(MAX_POSTS, len(rssfeed.entries))
@@ -181,7 +186,7 @@ def main():
     global handle
     global timestamp
     global pubdate
-
+    global userpath
     pubdate=""
 
     # Get timestamps for log entries and comparison
