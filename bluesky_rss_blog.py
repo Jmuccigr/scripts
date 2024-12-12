@@ -47,9 +47,12 @@ def compare_post_dates(post_date):
             # Open the file and read the date of the last published blog post.
             f = open(check_file, "r")
             pubdate = f.readlines()[0].replace("\n", "")
-
+    try:
+        last_published_date = datetime.strptime(pubdate, "%Y-%m-%dT%H:%M:%S%z")
+    except Exception as e:
+        print(timestamp + " Something wrong with last pub date in local file: " + e.__str__(), file=sys.stderr)
+        sys.exit()
     latest_post_date = datetime.strptime(post_date, "%Y-%m-%dT%H:%M:%S%z")
-    last_published_date = datetime.strptime(pubdate, "%Y-%m-%dT%H:%M:%S%z")
     if latest_post_date > last_published_date:
         return latest_post_date  # latest post is newer
     else:
