@@ -1,4 +1,5 @@
-#!/opt/homebrew/bin/python3
+#!/Users/john_muccigrosso/.venv/bin/python3
+
 import sys
 from pypdf import PdfWriter, PdfReader
 output = PdfWriter()
@@ -15,7 +16,5 @@ for i in range(len(ipdf.pages)):
 
 output.remove_text()
 
-
 with open(outputname, 'wb') as f:
    output.write(f)
-
