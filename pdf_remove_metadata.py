@@ -1,4 +1,4 @@
-#!/opt/homebrew/bin/python3
+#!/Users/john_muccigrosso/.venv/bin/python
 
 import sys
 import pikepdf
