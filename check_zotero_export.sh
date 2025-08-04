@@ -2,7 +2,7 @@
 
 # Send email when Zotero library export file has 0 size
 
-me=$(whoami)
+me=$USER
 dest="/Users/$me/Documents/github/local/miscellaneous"
 f="My Library.json"
 if [ ! -s "$dest/$f" ]
