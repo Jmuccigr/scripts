@@ -60,7 +60,7 @@ while test $# -gt 0; do
       echo "Overwriting the vault files is not undo-able, though you can always regenerate them from"
       echo "Zotero via the Obsidian plugin."
       echo ""
-      read -t 10 -p "Are you sure you want to overwrite? (y/N)" overwriteReply
+      read -t 10 -p "Are you sure you want to overwrite? (y/N) " overwriteReply
       if [[ $overwriteReply == "y" ]]
       then
         overwrite=true
