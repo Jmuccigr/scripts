@@ -102,7 +102,7 @@ while test $# -gt 0; do
       echo "same extension and starting character will be processed."
       echo ""
       echo "Convert PDF to constituent image files and then process them."
-      echo "Use unpaper to separate pages, if desired, and imagemagick to clean up"
+      echo "Use unpaper to separate pages, if desired, and imagemagick $tiffmaint to clean up"
       echo "and deskew. New files are saved in directories within the input file's home directory."
       echo ""
       echo "NB Check quality of output files before proceeding to OCR."
@@ -488,7 +488,7 @@ then
   # echo "${search_string[@]}"
   # extension='png'
   mkdir "$dir/$rotatedir"
-  magick "${search_string[@]}" -rotate $deg $pngOpts $depthSet $colorspace +repage "$dir/$rotatedir/$output"-%03d.$extension 1>/dev/null
+  magick $tiffmaint "${search_string[@]}" -rotate $deg $pngOpts $depthSet $colorspace +repage "$dir/$rotatedir/$output"-%03d.$extension 1>/dev/null
   origin_dir="$dir/$rotatedir"
   search_string=("$origin_dir/$output-"*)
 fi
@@ -559,7 +559,7 @@ mkdir "$dir/$myunpaperdir/"
 	# Cut off top and bottom, then
 	# create single row with average values of every column, then
 	# normalize and set threshold to find printed areas.
-	magick "$i" \
+	magick $tiffmaint "$i" \
 	\( +clone -gravity east -chop "%[fx:w*$choppct]"x0 -rotate $leftrot \
 	-gravity center -crop "$remainder"x0+0+0 +repage \
 	-write mpr:original \
@@ -590,7 +590,7 @@ then
 	do
 	  k="00$j"
 	  l=${k: -3}
-	  magick "$i" -colorspace gray \( +clone -lat "$latNum"x"$latNum"-$offset% -negate \) -compose divide_src -composite $pngOpts $depthSet +repage  "$dir/$bgcleandir/$output"-$l.$extension 1>/dev/null
+	  magick $tiffmaint "$i" -colorspace gray \( +clone -lat "$latNum"x"$latNum"-$offset% -negate \) -compose divide_src -composite $pngOpts $depthSet +repage  "$dir/$bgcleandir/$output"-$l.$extension 1>/dev/null
 	  ((j++))
 	done
   origin_dir="$dir/$bgcleandir"
@@ -603,7 +603,7 @@ then
   # echo "${search_string[@]}"
   # extension='png'
   mkdir "$dir/$cleandir"
-  magick "${search_string[@]}" $deskew $despeckle $normalize $pngOpts $depthSet $colorspace $ccitt +repage "$dir/$cleandir/$output"-%03d.$extension 1>/dev/null
+  magick $tiffmaint "${search_string[@]}" $deskew $despeckle $normalize $pngOpts $depthSet $colorspace $ccitt +repage "$dir/$cleandir/$output"-%03d.$extension 1>/dev/null
   origin_dir="$dir/$cleandir"
   search_string=("$origin_dir/$output-"*)
 fi
@@ -612,7 +612,7 @@ fi
 if [[ $ccitt != '' && $comp != 'Fax' && $comp != 'Group4' ]]
 then
   mkdir "$dir/$ccittdir"
-  magick "${search_string[@]}" $ccitt "$dir/$ccittdir/$output"-%03d.$extension 1>/dev/null
+  magick $tiffmaint "${search_string[@]}" $ccitt "$dir/$ccittdir/$output"-%03d.$extension 1>/dev/null
   origin_dir="$dir/$ccittdir"
   search_string=("$origin_dir/$output-"*)
 fi
@@ -688,7 +688,7 @@ then
 	# This will consistently treat final pages that are short.
 	k="00$j"
 	l=${k: -3}
-	magick \( -size "$w"x"$h" -background "$color" xc: -write mpr:bgimage +delete \) mpr:bgimage -gravity $side -geometry +0+$hd "$i" -compose divide_dst -composite $pngOpts $depthSet $colorspace $ccitt "$dir/$resizedir/$output-$l.$extension"
+	magick $tiffmaint \( -size "$w"x"$h" -background "$color" xc: -write mpr:bgimage +delete \) mpr:bgimage -gravity $side -geometry +0+$hd "$i" -compose divide_dst -composite $pngOpts $depthSet $colorspace $ccitt "$dir/$resizedir/$output-$l.$extension"
 	((j++))
   done
   origin_dir="$dir/$resizedir"
@@ -713,8 +713,8 @@ then
 	new_w=${orig_dim[4]}
 	x_dis=$(( (w - new_w) / 2))
 	## Grab printed area and center it on white background
-#	magick \( -size "$w"x$h -background white xc: -write mpr:bgimage +delete \) mpr:bgimage \( -crop "$w"x$h+$x+$y "$i" \) -compose divide_dst -gravity northwest -geometry +$x_dis$y -composite $ccitt "$dir/$recenterdir/$output-$l.$extension"
-	magick -size "$w"x$h -background white xc: \( "$i" -crop "$w"x$h+$x+$y \) -compose divide_dst -gravity northwest -geometry +$x_dis$y -composite $depthSet $colorspace $ccitt "$dir/$recenterdir/$output-$l.$extension"
+#	magick $tiffmaint \( -size "$w"x$h -background white xc: -write mpr:bgimage +delete \) mpr:bgimage \( -crop "$w"x$h+$x+$y "$i" \) -compose divide_dst -gravity northwest -geometry +$x_dis$y -composite $ccitt "$dir/$recenterdir/$output-$l.$extension"
+	magick $tiffmaint -size "$w"x$h -background white xc: \( "$i" -crop "$w"x$h+$x+$y \) -compose divide_dst -gravity northwest -geometry +$x_dis$y -composite $depthSet $colorspace $ccitt "$dir/$recenterdir/$output-$l.$extension"
     ((j++))
   done
   origin_dir="$dir/$recenterdir"
@@ -759,5 +759,5 @@ if [[ $wdim > $hdim ]]
   else
     imagedim=$hdim
   fi
-  magick mogrify $tiffmaint -units pixelsperinch -density $imagedim "$i" 1>/dev/null
+  mogrify $tiffmaint -units pixelsperinch -density $imagedim "$i" 1>/dev/null
 done
