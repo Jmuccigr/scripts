@@ -15,8 +15,6 @@ vaultlist=""
 
 # First create a json file for all the vault files, including only the vital info
 
-echo -e "Reading the"$vaultct" vault files..."
-
 # Instead of comparing all of them, just worry about the ones from the Obsidian plugin.
 # Do this by looking for files that contain a string unique to the plugin: "literaturenote"
 # The zot2obsidian script will catch the other files.
@@ -24,6 +22,8 @@ vaultfiles=`grep -l "literaturenote" "$vault"/@*.md`
 vaultct=`echo -e "$vaultfiles" | wc -l`
 
 echo -e "There are"$vaultct "files to check the tags for."
+
+echo -e "Reading the"$vaultct" vault files..."
 
 while IFS= read -r line; do
   vaulttext=`cat "$line"`
