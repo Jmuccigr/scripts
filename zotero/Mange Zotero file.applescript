@@ -1,12 +1,13 @@
 # Script to move a Zotero document file back and forth to iCloud so that
 # it can be worked on using other devices
 
-set archive to POSIX path of (path to library folder from user domain) & "Mobile Documents/com~apple~CloudDocs/Zotero/"
-set archive_folder to POSIX file archive as alias
-# Use enough of the path to convince you the file is in the Zotero storage area
+-- Set this variable to the local path where the file will be copied to/from
+set archive_folder to alias ((path to library folder from user domain as string) & "Mobile Documents:com~apple~CloudDocs:Zotero:")
+-- Use enough of the path to convince you the file is in the Zotero storage area
 set zotero_path_fragment to "Zotero data"
 set notification to ""
 
+-- Grab just the first file in the case of multi-file selection
 tell application "Finder"
 	set s to the selection
 	set zotfile to (item 1 of s)
@@ -28,7 +29,7 @@ tell application "Finder"
 				error number -128
 			end try
 		end if
-	else
+	else -- file is in the local storage folder
 		if zotfilefolder as string does not contain zotero_path_fragment then
 			display dialog "You have to work with a file in Zotero storage." with title "Not in Storage" buttons {"OK"} default button 1 with icon stop giving up after 30
 			error number -128
