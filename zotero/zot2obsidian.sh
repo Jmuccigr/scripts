@@ -155,22 +155,22 @@ echo -e ""
 find $finaldir -name item* -delete
 
 # Check for files in the vault that don't have a match in Zotero
-# Get list of Zotero items
+# Get list of Zotero items and massage their names to match the list from the vault
 if [[ $zlist == "" ]]; then
-  zlist=`grep -o "citationKey.*\"" "$srcFile" | perl -pe 's/.*\: \"(.+)\"/\1/g'`
+  zlist=`grep -o "citationKey.*\"" "$srcFile" | perl -pe 's/.*\: \"(.+)\"/\1.md/g'`
 fi
-# Get all files in the vault and massage their names to match the list from Zotero
-mdlist=`ls "$vault"/@*.md | perl -pe 's/^.+@(.+)\.md/\1/g'`
+# Get all files in the vault 
+mdlist=`ls "$vault"/@*.md | perl -pe 's/^.+@(.+)/\1/g'`
 
 echo -e "Checking for orphaned files in the vault..."
 while IFS= read -r mdfile; do
-  if [[ ! $zlist =~ $mdfile ]]; then
-    if grep -q "literaturenote" "$vault/@$mdfile.md"; then
+  if [[ ! $zlist =~ $"$mdfile" ]]; then
+    if grep -q "literaturenote" "$vault/@$mdfile"; then
       ctOrphan=$(( ctOrphan + 1 ))
-      orphans="@"$mdfile".md\n"$orphans
+      orphans="@"$mdfile"\n"$orphans
     else
       ctNoFile=$(( ctNoFile + 1 ))
-      rm "$vault/@"$mdfile".md"
+      rm "$vault/@"$mdfile
     fi
   fi
 done < <(printf %s "$mdlist")
