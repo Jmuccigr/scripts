@@ -105,7 +105,7 @@ then
 else
   echo "No filter applied. This might take a little bit..."
   jsonfile=`jq -r '.items[]' "$srcFile" | jq -s 'unique'`
-  zlist=`echo "$jsonfile" | jq -r .[].citationKey`
+  zlist=`echo "$jsonfile" | jq -r .[].citationKey | sed 's/$/\.md/g'`
 fi
 
 zoterojson=`echo "$jsonfile" | jq -c ' pick(.[].title, .[].tags[].tag, .[].citationKey)'` || exit 1
@@ -159,12 +159,15 @@ find $finaldir -name item* -delete
 if [[ $zlist == "" ]]; then
   zlist=`grep -o "citationKey.*\"" "$srcFile" | perl -pe 's/.*\: \"(.+)\"/\1.md/g'`
 fi
+
 # Get all files in the vault 
 mdlist=`ls "$vault"/@*.md | perl -pe 's/^.+@(.+)/\1/g'`
 
 echo -e "Checking for orphaned files in the vault..."
 while IFS= read -r mdfile; do
   if [[ ! $zlist =~ $"$mdfile" ]]; then
+    # Leave notes that don't match a Zotero entry (orphans).
+    # These will have "literaturevalue" in yaml.
     if grep -q "literaturenote" "$vault/@$mdfile"; then
       ctOrphan=$(( ctOrphan + 1 ))
       orphans="@"$mdfile"\n"$orphans
