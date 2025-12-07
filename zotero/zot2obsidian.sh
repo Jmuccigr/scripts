@@ -152,7 +152,7 @@ echo -e ""
 # Automate some of the comparisons:
 #
 # Delete the intermediate files which have names like "item..."
-find $finaldir -name item* -delete
+find $finaldir -name "item*" -delete
 
 # Check for files in the vault that don't have a match in Zotero
 # Get list of Zotero items and massage their names to match the list from the vault
