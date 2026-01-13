@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+me=$USER
 datestring=`date +%Y-%m-%d_%H.%M.%S`
 dir_path=$(dirname $0)
 # Get length so final finalname is not too long
@@ -21,7 +21,7 @@ while test $# -gt 0; do
     -h|--help)
       echo ""
       echo "This script will remove existing text in a PDF and then perform OCR and"
-      echo "add that text to it the original."
+      echo "add that text to the original."
       echo ""
       echo "The original file is left alone and a new file is created with a datestamped name."
       echo ""
@@ -109,7 +109,8 @@ input="$tmpdir"input_"$datestring".pdf
 exiftool -q -q "$inputclean" -all='' -o "$input"
 
 # strip text from the PDF
-python3 "$dir_path/remove_PDF_text.py" "$input" "$tmpdir/no_text.pdf"
+source "/Users/$me/.venv/bin/activate"
+python "$dir_path/remove_PDF_text.py" "$input" "$tmpdir/no_text.pdf"
 #gs -o "$tmpdir/no_text.pdf" -dFILTERTEXT -sDEVICE=pdfwrite "$input"
 
 # Make sure output file exists
@@ -122,7 +123,7 @@ then
 fi
 
 # ocr the original pdf, skipping optimization since we're throwing away the images
-ocrmypdf --force-ocr --output-type pdf --optimize 0 -l $lang "$tmpdir/no_text.pdf" "$tmpdir/ocr_output.pdf"
+ocrmypdf --redo-ocr --output-type pdf --optimize 0 -l $lang "$tmpdir/no_text.pdf" "$tmpdir/ocr_output.pdf"
 
 #strip images from that result
 gs -o "$tmpdir/textonly.pdf" -dFILTERIMAGE -dFILTERVECTOR -sDEVICE=pdfwrite "$tmpdir/ocr_output.pdf"
