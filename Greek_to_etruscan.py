@@ -7,8 +7,8 @@ import argparse
 GKLETTERS = ["ch", "ph", "th", "ei"]  # Letter combos to replace
 ETRLETTERS = ["χ", "φ", "θ", "i"]  # Substitutes to use
 ROMLETTERS = ["ch", "ph", "th"]  # Substitutes to use
-FILEPATH = re.sub("(Documents/).*", "\\1", os.path.dirname(__file__))
-MYTHLISTFILE = FILEPATH + "Academic/Etruscan_mythological_figures.txt"
+FILEPATH = os.path.dirname(__file__)
+MYTHLISTFILE = FILEPATH + "/Etruscan_mythological_figures.txt"
 
 
 # Remove 2-letter Roman combos for single Etruscan letters
@@ -57,7 +57,6 @@ def get_new_wordlist(wordlist: list, position: int) -> list:
                 newword = word[0:position] + letter + word[position + 1 :]
                 newwords.append(newword)
         else:
-            print(position, "not processing", word)
             newwords.append(word)
     return newwords
 
@@ -74,7 +73,8 @@ def check_endings(wordlist: list) -> list:
 def check_beginnings(wordlist: list) -> list:
     for i in range(len(wordlist)):
         newword = re.sub("^h", "", wordlist[i])
-        newword = re.sub("^dio", "zi", wordlist[i])
+        # Can reuse here because there is no chance of getting 'hdoi' at the start
+        newword = re.sub("^dio", "zi", newword)
         if newword != wordlist[i]:
             wordlist.append(newword)
     return wordlist
@@ -129,7 +129,6 @@ def process_word(wordlist: list) -> list:
     for position in range(l):
         wordlist = get_new_wordlist(wordlist, position)
     wordlist = check_endings(wordlist)
-    print(wordlist)
     wordlist = remove_epenthetic(wordlist)
     wordlist = check_middles(wordlist)
     finalwords = []

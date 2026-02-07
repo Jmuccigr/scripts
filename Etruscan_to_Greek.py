@@ -7,8 +7,8 @@ import argparse
 ETRLETTERS = ["th", "ph", "ch"]  # Letter combos to replace
 GKLETTERS = ["θ", "φ", "χ", "k", "([^ae])u"]  # Substitutes to use
 GKFINAL = ["th", "ph", "ch", "ei", "\\1y"]  # Substitutes to use
-FILEPATH = re.sub("(Documents/).*", "\\1", os.path.dirname(__file__))
-MYTHLISTFILE = FILEPATH + "Academic/Greek_mythological_figures.txt"
+FILEPATH = os.path.dirname(__file__)
+MYTHLISTFILE = FILEPATH + "/Greek_mythological_figures.txt"
 
 
 # Remove 2-letter Roman combos for single Etruscan letters
