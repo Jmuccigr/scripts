@@ -52,3 +52,5 @@ Just some other scripts that aren't Apple.
 - zotero_check_tags.sh: checks for mis-matches between tags in Zotero and in the Obsidian vault files created by the Obsidian-Zotero plugin.
 
 - zotero_s_and_r.js: a javascript that does a search and replace in Zotero, using the Execute JS add-on for FireFox. See <https://forums.zotero.org/discussion/7707/1/find-and-replace-on-multiple-items/>.
+
+- Greek_to_Etruscan.py and Etruscan_to_Greek.py: two scripts to convert names from one language to the other.
