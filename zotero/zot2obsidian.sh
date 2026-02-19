@@ -6,12 +6,12 @@
 
 
 # Identify the location for the files and set some variables
-datestring=`date +%Y%m%d.%H%M%S`
-tmpdir=`echo $TMPDIR`
+datestring=$(date +%Y%m%d.%H%M%S)
+tmpdir=$(echo $TMPDIR)
 me=$USER
-vault="/Users/"$me"/Library/Mobile Documents/iCloud~md~obsidian/Documents/notes/Zotero"
+vault=/Users/"$me"/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/notes/Zotero
 finaldir=$tmpdir"split"$datestring
-srcFile="/Users/"$me"/Documents/github/local/miscellaneous/My Library for backup.json"
+libraryFile="/Users/"$me"/Documents/github/local/miscellaneous/My Library for backup.json"
 
 useTags=false
 useDate=false
@@ -20,7 +20,7 @@ quiet=false
 
 maxFile=""
 orphans=""
-zlist=""
+libList=""
 ctEdited=0
 ctNew=0
 ctNoFile=0
@@ -88,25 +88,26 @@ done
 
 # Check for the Zotero library file in the location identified above
 
-[ ! -f "$srcFile" ] && (echo "$srcFile does not exist. Quitting..."; exit 1)
+[ ! -f "$libraryFile" ] && (echo "$libraryFile does not exist. Quitting..."; exit 1)
 
 if $useDate
 then
-  dateText=`echo $dateText | sed -E 's/.*([0-9]{4}-[0-9]{2}-[0-9]{2}).*/\1/g'`
+  dateText=$(echo $dateText | sed -E 's/.*([0-9]{4}-[0-9]{2}-[0-9]{2}).*/\1/g')
   if [[ ${#dateText} -ne 10 ]]
   then
     echo -e "No valid date string found (YYYY-MM-DD). Exiting..."
     exit 1
   fi
-  jsonfile=`jq -r '.items[] | select(.dateModified > ("'$dateText'"))' "$srcFile" | jq -s '.'`
+  jsonfile=`jq -r '.items[] | select(.dateModified > ("'$dateText'"))' "$libraryFile" | jq -s '.'`
 elif $useTags
 then
-  jsonfile=`jq -r '.items[] | select(.tags[].tag | contains ("'$tagText'"))' "$srcFile"  | jq -s 'unique'?`
+  jsonfile=`jq -r '.items[] | select(.tags[].tag | contains ("'$tagText'"))' "$libraryFile"  | jq -s 'unique'?`
 else
   echo "No filter applied. This might take a little bit..."
-  jsonfile=`jq -r '.items[]' "$srcFile" | jq -s 'unique'`
-  zlist=`echo "$jsonfile" | jq -r .[].citationKey | sed 's/$/\.md/g'`
+  jsonfile=`jq -r '.items[]' "$libraryFile" | jq -s 'unique'`
+  libList=`echo "$jsonfile" | jq -r .[].citationKey | sed 's/$/\.md/g'`
 fi
+# libList contains potential filenames without the leading @
 
 zoterojson=`echo "$jsonfile" | jq -c ' pick(.[].title, .[].tags[].tag, .[].citationKey)'` || exit 1
 zotct=`echo "$zoterojson" | jq '.[].citationKey' | wc -l`
@@ -117,6 +118,7 @@ else
   echo "There are" $zotct "entries that meet the criteria."
 fi
 
+# Make $yamlFile which has all the yaml for the library listings
 # TODO: figure out the last regex to avoid the repetition
 
 yamlFile=`echo $zoterojson | yq -p json -o yaml ' (.. | select(key == "title") ) style="double"' | sed 's/citationKey:/citekey:/' | perl -pe 's/^[^a-z]+//g' | perl -pe 's/^tag: /  - /g' | perl -pe 's/^(title:)/---\n\1/' | perl -pe 's/(^  - .+?) /\1\2_/g' | perl -pe 's/(^  - .+?) /\1\2_/g' | perl -pe 's/(^  - .+?) /\1\2_/g' | perl -pe 's/(^  - .+?) /\1\2_/g' | perl -pe 's/(^  - .+?) /\1\2_/g' | perl -pe 's/(^  - .+?) /\1\2_/g' | perl -pe 's/(^  - .+?) /\1\2_/g'` || exit 1
@@ -129,17 +131,18 @@ sleep 1
 for f in $finaldir/items*; do
   cat $f > $f".txt"
   echo -e "---" >> $f".txt"
-  filename=`grep citekey "$f" | sed 's/.* //'`
+  filename=$(grep citekey "$f" | sed 's/.* //')
   cp $f".txt" "$finaldir/@$filename.md"
 done
 
 # Sanity check on output
-ctTxt=`ls $finaldir/*.txt | wc -l`
-ctMd=`ls $finaldir/*.md | grep -c '^'`
+ctTxt=$(ls $finaldir/*.txt | wc -l)
+ctMd=$(ls $finaldir/*.md | grep -c '^')
 if [[ $ctTxt -ne $ctMd ]] || [[ $ctTxt -eq 0 ]]; then
   echo ""
   echo "Uh-oh, something went wrong there. Have a look."
-  echo "The number of .txt files generated was " $ctTxt " and .md files was $ctMd."
+  echo "The number of .txt files generated was" $ctTxt "and .md files was $ctMd."
+  echo "They should be the same. Check for null citekeys."
   open "$finaldir/"
   exit 1
 fi
@@ -156,8 +159,8 @@ find $finaldir -name "item*" -delete
 
 # Check for files in the vault that don't have a match in Zotero
 # Get list of Zotero items and massage their names to match the list from the vault
-if [[ $zlist == "" ]]; then
-  zlist=`grep -o "citationKey.*\"" "$srcFile" | perl -pe 's/.*\: \"(.+)\"/\1.md/g'`
+if [[ $libList == "" ]]; then
+  libList=`grep -o "citationKey.*\"" "$libraryFile" | perl -pe 's/.*\: \"(.+)\"/\1.md/g'`
 fi
 
 # Get all files in the vault 
@@ -165,7 +168,7 @@ mdlist=`ls "$vault"/@*.md | perl -pe 's/^.+@(.+)/\1/g'`
 
 echo -e "Checking for orphaned files in the vault..."
 while IFS= read -r mdfile; do
-  if [[ ! $zlist =~ $"$mdfile" ]]; then
+  if [[ ! $libList =~ $"$mdfile" ]]; then
     # Leave notes that don't match a Zotero entry (orphans).
     # These will have "literaturevalue" in yaml.
     if grep -q "literaturenote" "$vault/@$mdfile"; then
@@ -183,7 +186,7 @@ echo -e "Comparing the vault files with the Zotero export..."
 # If the file exists in the vault and is big enough (1.5k?), then flag the new file by moving
 # it to a new folder(?)
 for zf in $finaldir/*.md; do
-  fn=`basename $zf`
+  fn=$(basename $zf)
   if [ ! -f "$vault/$fn" ]; then
     ctNew=$(( ctNew + 1 ))
     newfiles=$fn"\n"$newfiles
@@ -231,7 +234,9 @@ for zf in $finaldir/*.md; do
             if $overwrite; then
               mv "$zf" "$vault/"
             else
-              if [ $quiet == false ]; then echo "$fn is different, and probably can be copied over. Change in file size: " $sizeDiff; fi
+              if [ $quiet == false ]; then 
+                echo "$fn is different, and probably can be copied over. Change in file size: " $sizeDiff
+              fi
             fi
           fi
         fi
@@ -266,11 +271,11 @@ if [[ $ctSimilar -gt 0 ]]; then
     (true)    finish=" and overwritten in the vault.";;
     (false)   finish=".";;
   esac
-  echo $ctSimilar "files were similar in both places"$finish
+  echo $ctSimilar files were similar in both places"$finish"
   echo "    The maximum size difference between files was "$maxDiff": "$maxFile"."
 fi
 
-if [[ `ls $finaldir | wc -l` -gt 0 ]]; then
+if [[ $(ls "$finaldir" | wc -l) -gt 0 ]]; then
   open "$finaldir/"
 else
   echo ""
