@@ -123,7 +123,7 @@ then
 fi
 
 # ocr the original pdf, skipping optimization since we're throwing away the images
-ocrmypdf --redo-ocr --output-type pdf --optimize 0 -l $lang "$tmpdir/no_text.pdf" "$tmpdir/ocr_output.pdf"
+ocrmypdf --force-ocr --output-type pdf --optimize 0 -l $lang "$tmpdir/no_text.pdf" "$tmpdir/ocr_output.pdf"
 
 #strip images from that result
 gs -o "$tmpdir/textonly.pdf" -dFILTERIMAGE -dFILTERVECTOR -sDEVICE=pdfwrite "$tmpdir/ocr_output.pdf"
