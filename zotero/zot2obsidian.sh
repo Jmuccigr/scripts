@@ -142,7 +142,7 @@ if [[ $ctTxt -ne $ctMd ]] || [[ $ctTxt -eq 0 ]]; then
   echo ""
   echo "Uh-oh, something went wrong there. Have a look."
   echo "The number of .txt files generated was" $ctTxt "and .md files was $ctMd."
-  echo "They should be the same. Check for null citekeys."
+  echo "They should be the same. Check for duplicate citekeys."
   open "$finaldir/"
   exit 1
 fi
