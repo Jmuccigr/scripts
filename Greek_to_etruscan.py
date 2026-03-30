@@ -67,6 +67,9 @@ def check_endings(wordlist: list) -> list:
         newword = re.sub("es$", "e", newword)
         newword = re.sub("er$", "re", newword)
         wordlist[i] = newword
+        # Next based on Iason > Easunu (etc)
+        newword = re.sub("un$", "unu", wordlist[i])
+        wordlist.append(newword)
     return wordlist
 
 
@@ -75,6 +78,19 @@ def check_beginnings(wordlist: list) -> list:
         newword = re.sub("^h", "", wordlist[i])
         # Can reuse here because there is no chance of getting 'hdoi' at the start
         newword = re.sub("^dio", "zi", newword)
+        if newword != wordlist[i]:
+            wordlist.append(newword)
+        # These are based on Iason, versions with and w/o h-
+        newword = re.sub("^(i[a])", "he\\1", wordlist[i])
+        if newword != wordlist[i]:
+            wordlist.append(newword)
+        newword = re.sub("^h(ei[a])", "\\1", newword)
+        if newword != wordlist[i]:
+            wordlist.append(newword)
+        newword = re.sub("^(i)([a])", "he\\2", wordlist[i])
+        if newword != wordlist[i]:
+            wordlist.append(newword)
+        newword = re.sub("^h(e[a])", "\\1", newword)
         if newword != wordlist[i]:
             wordlist.append(newword)
     return wordlist
