@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 me=$USER
-datestring=`date +%Y-%m-%d_%H.%M.%S`
+datestring=$(date +%Y-%m-%d_%H.%M.%S)
 dir_path=$(dirname $0)
 # Get length so final finalname is not too long
-ldate=`echo ${#datestring}`
-maxl=`expr 255 - $ldate`
-tmpdir=`echo ${TMPDIR:-/tmp/}`
+tag="orig"
+maxl=$(( 255 - ${#tag} ))
+tmpdir=$(echo ${TMPDIR:-/tmp/})
 keepfirst=false
 lang=""
 
@@ -52,7 +52,7 @@ input_extension="${1##*.}"
 
 if [[ "$1" == "" ]]
 then
-  echo "\aYou must enter a filename."
+  echo "You must enter a filename."
   exit 0
 fi
 
@@ -88,60 +88,69 @@ then
 fi
 
 # Get final output file name
-final=`basename "$input"`
-final=`echo ${final%.*}`
-final=`echo ${final:0:$maxl}`
-final="$final"_"$datestring".pdf
-origdir=`dirname "$input"`
-inputold="$input"
+saved=$(basename "$input")
+saved=$(echo ${saved%.*})
+saved=$(echo ${saved:0:$maxl})
+saved="$saved"_"$tag".pdf
+saveddir=$(dirname "$input")
+input_new="$input"
 
 # If desired, remove the first page right away and save a little time
 if [[ $first ]]
 then
-  input="$tmpdir"input_new.pdf
-  qpdf "$inputold" --pages . 2-z -- "$input"
+  input_new="$tmpdir"input.pdf
+  qpdf "$input" --pages . 2-z -- "$input_new"
 fi
 
 # Strip metadata from input file
-inputclean="$input"
+input_clean="$input_new"
 # exiftool won't overwrite an existing file, so give output a unique name
-input="$tmpdir"input_"$datestring".pdf
-exiftool -q -q "$inputclean" -all='' -o "$input"
+input_clean="$tmpdir"input_"$datestring".pdf
+exiftool -q -q "$input_new" -all='' -o "$input_clean"
 
 # strip text from the PDF
 source "/Users/$me/.venv/bin/activate"
-python "$dir_path/remove_PDF_text.py" "$input" "$tmpdir/no_text.pdf"
-#gs -o "$tmpdir/no_text.pdf" -dFILTERTEXT -sDEVICE=pdfwrite "$input"
+python3 "$dir_path/remove_PDF_text.py" "$input_clean" "$tmpdir/no_text.pdf"
+#gs -o "$tmpdir/no_text.pdf" -dFILTERTEXT -sDEVICE=pdfwrite "$input_new"
 
 # Make sure output file exists
 if [[ ! -s "$tmpdir/no_text.pdf" ]]
 then
   echo ''
-  echo "\a"Work file \""$input"\" does not appear to exist or has no content! Exiting...
+  echo "\a"Work file \""$tmpdir/no_text.pdf"\" does not appear to exist or has no content! Exiting...
   echo ''
   exit 0
 fi
 
+echo "Starting ocrmypdf"
+
 # ocr the original pdf, skipping optimization since we're throwing away the images
 ocrmypdf --force-ocr --output-type pdf --optimize 0 -l $lang "$tmpdir/no_text.pdf" "$tmpdir/ocr_output.pdf"
 
+echo "Cleaning ocrmypdf result"
+
 #strip images from that result
 gs -o "$tmpdir/textonly.pdf" -dFILTERIMAGE -dFILTERVECTOR -sDEVICE=pdfwrite "$tmpdir/ocr_output.pdf"
+
+echo "Overlaying ocr text"
 
 # overlay ocr text on file stripped of text
 qpdf "$tmpdir/no_text.pdf" --overlay "$tmpdir/textonly.pdf" -- "$tmpdir/final.pdf"
 
 # Restore the original metadata, if any
-exiftool -tagsfromfile "$inputold" -title -author "$tmpdir/final.pdf"
+exiftool -tagsfromfile "$input" -title -author "$tmpdir/final.pdf"
 # Remove some added metadata while we're at it
-exiftool -Producer='' -XMPToolkit='' "$tmpdir/final.pdf"
+exiftool -Producer='' -XMPToolkit='' -Creator='' "$tmpdir/final.pdf"
+
+# Rename original file to save it
+mv "$input" "$saveddir"/"$saved"
 
 # replace first page if required
 if [ $first ]
 then
-  qpdf "$tmpdir/final.pdf" --pages "$inputold" 1 . 1-z -- "$origdir"/"$final"
+  qpdf "$tmpdir/final.pdf" --pages "$saveddir"/"$saved" 1 . 1-z -- "$input"
 else
-  mv "$tmpdir/final.pdf" "$origdir"/"$final"
+  mv "$tmpdir/final.pdf" "$input"
 fi
 
 if [[ $(uname) == 'Darwin' ]]
