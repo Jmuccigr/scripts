@@ -1,4 +1,4 @@
-#!/Users/john_muccigrosso/.venv/bin/python3
+#!/Users/john_muccigrosso/.atproto/bin/python3
 
 # A script to check an RSS feed and share the latest new entry on Bluesky.
 # Guts of it are from <https://sperea.es/blog/bot-bluesky-rss>, but now
@@ -7,7 +7,8 @@
 # It logs both success and failure.
 # I also pushed some constants into files for privacy.
 
-from atproto import Client, client_utils
+from atproto import Client, client_utils, Session, SessionEvent
+import atsession
 from datetime import datetime, timezone
 from PIL import Image
 import feedparser
@@ -17,17 +18,21 @@ import json
 import os.path
 import re
 import sys
+import tempfile
 import time
-import urllib3 
-#from urllib.request import urlopen 
+import urllib3
+from local_utils import *
 
 # Constants
-CHECK_FILE = "zotero_date.txt"
-BLUESKY_PW_FILE = "bluesky_app_password.txt"
-BLUESKY_HANDLE_FILE = "bluesky_handle.txt"
+userpath=re.sub(r"^(.+\/Documents\/).*", r"\1", os.path.dirname(os.path.realpath(__file__)))
+TMPDIR = tempfile.gettempdir() + "/"
+BLUESKY_PW_FILE = userpath + "bluesky_app_password.txt"
+BLUESKY_HANDLE_FILE = userpath + "bluesky_handle.txt"
+CHECK_FILE = userpath + "zotero_date.txt"
 ICON_FILE = "https://jmuccigr.github.io/images/zotero_icon.png"
 MAX_POSTS = 3
 MAX_IMAGE_SIZE = 1000000
+atsession.SESSION_FILE = TMPDIR + "bluesky_session.txt"
 # In this case I can limit the length of the returned feed to save processing time
 FEED_URL = "https://api.zotero.org/users/493397/items/top?limit=" + MAX_POSTS.__str__() + "format=atom&v=3"
 BLUESKY_API_ENDPOINT = "https://bsky.social/xrpc/com.atproto.repo.createRecord"
@@ -40,22 +45,21 @@ def compare_post_dates(post_date):
     # If not already done, check the file for the lastest published date.
     # Report error & set an absurdly early date if the file doesn't exist
     if pubdate == "":
-        if not os.path.isfile(check_file):
+        if not os.path.isfile(CHECK_FILE):
             pubdate="1900-01-01T00:00:01+00:00"
-            with open(check_file, 'x') as file:
+            with open(CHECK_FILE, 'x') as file:
                 file.write(pubdate)
-            print(timestamp + "Zotero item check file does not exist", file=sys.stderr)
+            log_this("Zotero item check file does not exist", False)
         else:
             # Open the file and read the date of the last published Zotero item.
-            f = open(check_file, "r")
+            f = open(CHECK_FILE, "r")
             pubdate = f.readlines()[0].replace("\n", "")
 
     latest_post_date = datetime.strptime(post_date, "%Y-%m-%dT%H:%M:%S%z")
     try:
         last_published_date = datetime.strptime(pubdate, "%Y-%m-%dT%H:%M:%S%z")
     except Exception as e:
-        print(timestamp + " Something wrong with last pub date in local file: " + e.__str__(), file=sys.stderr)
-        sys.exit()
+        log_this("Something wrong with last pub date in local file: " + e.__str__(), True)
     if latest_post_date > last_published_date:
         return latest_post_date  # latest post is newer
     else:
@@ -75,7 +79,8 @@ def get_rss_content():
     max_posts=min(MAX_POSTS, len(rssfeed.entries))
     for entry in rssfeed.entries:
         if ct < max_posts:
-            post_title = entry.title
+            # Grab post title, substituting italics tags
+            post_title = re.sub("</*i>", "\"", entry.title)
             post_link = entry.link
             if hasattr(entry, 'media_thumbnail'):
                 post_image = entry.media_thumbnail[0]['url']
@@ -107,7 +112,7 @@ def get_rss_content():
 def prepare_post_for_bluesky(title, link):
     # Convert the RSS item into a format suitable for Bluesky.
 
-    short_title=title[0:240]
+    short_title=re.sub("<\\*i>", "_", title[0:240])
 
     tb = client_utils.TextBuilder()
     tb.text("Recently noted...\n\n" + short_title + "\n\nSee it in ")
@@ -122,7 +127,7 @@ def prepare_image(image_url):
         response = http.request("GET", image_url)
         status = response.status
         if (response.status != 200):
-            print(timestamp + " Unable to download image file. Error " + response.status.__str__() + ": " + image_url, file=sys.stderr)
+            log_this("Unable to download image file. Error " + response.status.__str__() + ": " + image_url, False)
             return ""
         img_data = response.data
         # Using a quick and dirty rule of thumb: images less than dim in size will be
@@ -141,87 +146,96 @@ def prepare_image(image_url):
             img_data = img_byte_arr.getvalue()
     except:
         # Log error & return something small
-        print(timestamp + " Unable to get image file: " + image_url, file=sys.stderr)
+        log_this("Unable to get image file: " + image_url, False)
         img_data = ""
-        
+
     return(img_data)
 
-def bluesky_rss_bot(app_password, client):
-    # Fetch content from the RSS feed
-    validEntries = get_rss_content()
-    # Only do something if there are valid entries
-    if validEntries:
-        # Authenticate and obtain necessary credentials
-        ct=0
-        # Prepare the fetched content for Bluesky
-        for entry in validEntries:
-            # Wait a little if posting more than one entry
-            if ct > 0:
-                time.sleep(POST_DELAY)
-            ct += 1
-            post_structure = prepare_post_for_bluesky(entry["title"], entry["link"])
-            if entry["image"] == "":
+def bluesky_rss_bot(validEntries):
+    global client
+
+    # Authenticate and obtain necessary credentials
+    ct = 0
+    # Prepare the fetched content for Bluesky
+    for entry in validEntries:
+        # Wait a little if posting more than one entry
+        if ct > 0:
+            time.sleep(POST_DELAY)
+        else:
+            ct = 1
+        post_structure = prepare_post_for_bluesky(entry["title"], entry["link"])
+        if entry["image"] == "":
+            bluesky_reply = client.send_post(post_structure)
+        else:
+            image_url = entry["image"]
+            img_data = prepare_image(image_url)
+            if sys.getsizeof(img_data) < 100:
+                log_this("Bluesky post image couldn't be retrieved", False)
                 bluesky_reply = client.send_post(post_structure)
             else:
-                image_url = entry["image"]
-                img_data = prepare_image(image_url)
-                if sys.getsizeof(img_data) < 100:
-                    print(timestamp + " Bluesky post image couldn't be retrieved", file=sys.stderr)
-                    bluesky_reply = client.send_post(post_structure)
-                else:
-                    bluesky_reply = client.send_image(text=post_structure, image=img_data, image_alt=entry["image_desc"])
-            try:
-                reply = reply + bluesky_reply
-            except:
-                reply = bluesky_reply
+                bluesky_reply = client.send_image(text=post_structure, image=img_data, image_alt=entry["image_desc"])
+        try:
+            reply = reply + bluesky_reply
+        except:
+            reply = bluesky_reply
 
-        print(timestamp + " Published latest Zotero items to Bluesky", file=sys.stderr)
-        return reply
-    else:
-        print(timestamp + " Latest Zotero item already published", file=sys.stderr)
-        return "No need to post."
+    log_this("Published latest Zotero items to Bluesky", False)
+    return reply
 
-def main():
-    global check_file
-    global handle
-    global timestamp
-    global pubdate
-    global userpath
-    pubdate=""
+def init_client() -> Client:
+    global client
 
-    # Get timestamps for log entries and comparison
-    timestamp =(f'{datetime.now():%Y-%m-%d %H:%M:%S%z}')
-    check_date=datetime.now(timezone.utc).isoformat(sep="T", timespec="seconds")
-    # Get needed info from files. Adjust userpath as needed.
-    userpath=(re.sub("^(.+/Documents/).*", r"\1", os.path.dirname(os.path.realpath(__file__))))
-    check_file = userpath + CHECK_FILE
-    pw_file = userpath + BLUESKY_PW_FILE
-    handle_file=userpath + BLUESKY_HANDLE_FILE
-    if not os.path.isfile(pw_file):
-        print(timestamp + " Bluesky password file does not exist", file=sys.stderr)
-    elif not os.path.isfile(handle_file):
-        print(timestamp + " Bluesky handle file does not exist", file=sys.stderr)
+    if (not os.path.isfile(BLUESKY_PW_FILE)):
+        log_this("Bluesky password file does not exist", True)
+    elif (not os.path.isfile(BLUESKY_HANDLE_FILE)):
+        log_this("Bluesky handle file does not exist", True)
     else:
         # Get needed info from files
-        f = open(pw_file, "r")
+        f = open(BLUESKY_PW_FILE, "r")
         app_pw = f.readlines()[0].replace("\n", "")
-        f = open(handle_file, "r")
+        f = open(BLUESKY_HANDLE_FILE, "r")
         handle = f.readlines()[0].replace("\n", "")
         # Do the actual work
         client = Client()
         try:
-            client.login(handle, app_pw)
+            client.on_session_change(atsession.on_session_change)
+
+            session_string = atsession.get_session()
+            if session_string:
+                print('Reusing session')
+                client.login(session_string=session_string)
+            else:
+                print('Creating new session')
+                client.login(handle, app_pw)
         except:
-            print(timestamp + " Problem logging into Bluesky", file=sys.stderr)
+            log_this("Problem logging into Bluesky", False)
             # Trapping this, but not doing anything with it now
             e = sys.exc_info()[1]
+            print(e)
+            return False
         else:
-            response = bluesky_rss_bot(app_pw, client)
+            return True
+
+def main():
+#     global client
+    global pubdate
+
+    pubdate = ""
+
+    check_date = datetime.now(timezone.utc).isoformat(sep="T", timespec="seconds")
+    # Fetch content from the RSS feed
+    validEntries = get_rss_content()
+    if validEntries:
+        attempt = init_client()
+        if (attempt):
+            response = bluesky_rss_bot(validEntries)
             # Finish by writing the date to file for next run
-            with open(check_file, 'w') as f:
+            with open(CHECK_FILE, 'w') as f:
                 f.write(check_date)
                 f.close()
             print(response)
+    else:
+        log_this("Latest Zotero item already published", False)
 
 if __name__ == "__main__":
     main()

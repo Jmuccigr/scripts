@@ -1,4 +1,4 @@
-#!/Users/john_muccigrosso/.venv/bin/python3
+#!/Users/john_muccigrosso/.atproto/bin/python3
 
 # A script to check an RSS feed and share the latest new entry on Bluesky.
 # Guts of it are from <https://sperea.es/blog/bot-bluesky-rss>, but now
@@ -7,7 +7,9 @@
 # It logs both success and failure.
 # I also pushed some constants into files for privacy.
 
-from atproto import Client, client_utils
+from atproto import Client, client_utils, models, Session, SessionEvent
+import atsession
+from bs4 import BeautifulSoup
 from datetime import datetime, timezone
 from PIL import Image
 import feedparser
@@ -17,20 +19,42 @@ import json
 import os.path
 import re
 import sys
+import tempfile
 import time
 import urllib3 
-#from urllib.request import urlopen 
+from local_utils import *
 
 # Constants
-CHECK_FILE = "blogpost_date.txt"
-BLUESKY_PW_FILE = "bluesky_app_password.txt"
-BLUESKY_HANDLE_FILE = "bluesky_handle.txt"
+userpath=re.sub(r"^(.+\/Documents\/).*", r"\1", os.path.dirname(os.path.realpath(__file__)))
+TMPDIR = tempfile.gettempdir() + "/"
+BLUESKY_PW_FILE = userpath + "bluesky_app_password.txt"
+BLUESKY_HANDLE_FILE = userpath + "bluesky_handle.txt"
+CHECK_FILE = userpath + "blogpost_date.txt"
 MAX_POSTS = 3
 MAX_IMAGE_SIZE = 1000000
+EMBED_IMG = TMPDIR + "blogscreencap.jpg"
 FEED_URL = "https://jmuccigr.github.io/feed.xml"
 BLUESKY_API_ENDPOINT = "https://bsky.social/xrpc/com.atproto.repo.createRecord"
 API_KEY_URL = "https://bsky.social/xrpc/com.atproto.server.createSession"
+atsession.SESSION_FILE = TMPDIR + "bluesky_session.txt"
 POST_DELAY = 5 #in seconds
+
+# def get_session() -> Optional[str]:
+#     try:
+#         with open(SESSION_FILE, encoding='UTF-8') as f:
+#             return f.read()
+#     except FileNotFoundError:
+#         return None
+# 
+# def save_session(session_string: str,) -> None:
+#     with open(SESSION_FILE, 'w', encoding='UTF-8') as f:
+#         f.write(session_string)
+# 
+# def on_session_change(event: SessionEvent, session: Session) -> None:
+#     print('Session changed:', event, repr(session))
+#     if event in (SessionEvent.CREATE, SessionEvent.REFRESH):
+#         print('Saving changed session')
+#         save_session(session.export())
 
 def compare_post_dates(post_date):
     global pubdate
@@ -38,28 +62,66 @@ def compare_post_dates(post_date):
     # If not already done, check the file for the lastest published date.
     # Report error & set an absurdly early date if the file doesn't exist
     if pubdate == "":
-        if not os.path.isfile(check_file):
+        if not os.path.isfile(CHECK_FILE):
             pubdate="1900-01-01T00:00:01+00:00"
-            with open(check_file, 'x') as file:
+            with open(CHECK_FILE, 'x') as file:
                 file.write(pubdate)
-                print(timestamp + " Blog post check file does not exist", file=sys.stderr)
+                log_this("Blog post check file does not exist", False)
         else:
             # Open the file and read the date of the last published blog post.
-            f = open(check_file, "r")
+            f = open(CHECK_FILE, "r")
             pubdate = f.readlines()[0].replace("\n", "")
     try:
         last_published_date = datetime.strptime(pubdate, "%Y-%m-%dT%H:%M:%S%z")
     except Exception as e:
-        print(timestamp + " Something wrong with last pub date in local file: " + e.__str__(), file=sys.stderr)
-        sys.exit()
+        log_this("Something wrong with last pub date in local file: " + e.__str__(), True)
     latest_post_date = datetime.strptime(post_date, "%Y-%m-%dT%H:%M:%S%z")
     if latest_post_date > last_published_date:
         return latest_post_date  # latest post is newer
     else:
         return False # last published is newer
 
-def get_rss_content():
+def takeScreencap (url):
+    title = ""
+    result = os.system("cd " + TMPDIR + ";pageres --overwrite --format=jpg " + url + " --filename=blogscreencap 1024x768 --crop")
+    if (result != 0):
+        log_this("Blog embed screencap didn't work:" + result.__str__(), False)
+    else:
+        http = urllib3.PoolManager()
+        r = http.request('GET', url, headers={'User-Agent': 'Mozilla/5.0'})
+        soup = BeautifulSoup(r.data.decode('utf-8'), features="lxml")
+        title_tag = soup.find("meta", property="og:title")
+        if title_tag:
+            title = title_tag["content"]
+        else:
+            title = soup.title.string
+        description_tag = soup.find("meta", property="og:description")
+        if description_tag:
+            body = description_tag["content"]
+        else:
+            body = soup.article.get_text(' ', strip=True)[0:200]
+    return(result, title, body)
 
+def prepare_embedded_link(title, desc, url):
+    # This shouldn't happen, but just in case
+    if (url == ""):
+        embed = ""
+    else:
+        with open(EMBED_IMG, 'rb') as f:
+          img_data = f.read()
+
+        thumb = client.upload_blob(img_data)
+        embed = models.AppBskyEmbedExternal.Main(
+            external=models.AppBskyEmbedExternal.External(
+                title=title,
+                description=desc,
+                uri=url,
+                thumb=thumb.blob,
+            )
+        )
+    return(embed)
+
+def get_rss_content():
     ct=0
     # Parse the RSS feed
     rssfeed = feedparser.parse(FEED_URL)
@@ -74,12 +136,15 @@ def get_rss_content():
         if ct < max_posts:
             post_title = entry.title
             post_link = entry.link
+            # Use thumbnail if included, otherwise screenshot
             if hasattr(entry, 'media_thumbnail'):
                 post_image = entry.media_thumbnail[0]['url']
                 post_image_desc = "Image from the post"
             else:
-                post_image = icon
-                post_image_desc = "blog icon"
+                post_image = ""
+                post_image_desc = ""
+#                 post_image = icon
+#                 post_image_desc = "blog icon"
 
             # Use only one of the next two lines.
             post_date = entry.updated
@@ -119,7 +184,7 @@ def prepare_image(image_url):
         response = http.request("GET", image_url)
         status = response.status
         if (response.status != 200):
-            print(timestamp + " Unable to download image file. Error " + response.status.__str__() + ": " + image_url, file=sys.stderr)
+            log_this("Unable to download image file. Error " + response.status.__str__() + ": " + image_url, False)
             return ""
         img_data = response.data
         # Using a quick and dirty rule of thumb: images less than dim in size will be
@@ -138,87 +203,102 @@ def prepare_image(image_url):
             img_data = img_byte_arr.getvalue()
     except:
         # Log error & return something small
-        print(timestamp + " Unable to get image file: " + image_url, file=sys.stderr)
+        log_this("Unable to get image file: " + image_url, False)
         img_data = ""
         
     return(img_data)
 
-def bluesky_rss_bot(app_password, client):
-    # Fetch content from the RSS feed
-    validEntries = get_rss_content()
-    # Only do something if there are valid entries
-    if validEntries:
-        # Authenticate and obtain necessary credentials
-        ct=0
-        # Prepare the fetched content for Bluesky
-        for entry in validEntries:
-            # Wait a little if posting more than one entry
-            if ct > 0:
-                time.sleep(POST_DELAY)
-            ct += 1
-            post_structure = prepare_post_for_bluesky(entry["title"], entry["link"])
-            if entry["image"] == "":
+def bluesky_rss_bot(validEntries):
+    global client
+    
+    # Authenticate and obtain necessary credentials
+    ct = 0
+    # Prepare the fetched content for Bluesky
+    for entry in validEntries:
+        # Wait a little if posting more than one entry
+        if ct > 0:
+            time.sleep(POST_DELAY)
+        else:
+            ct = 1
+        post_structure = prepare_post_for_bluesky(entry["title"], entry["link"])
+        if entry["image"] == "":
+            result, title, body = takeScreencap(entry["link"])
+            if (result == 0):
+                embed = prepare_embedded_link(title, body, entry["link"])
+                bluesky_reply = client.send_post(post_structure, embed=embed)
+            else:
+                log_this("Bluesky embed image couldn't be taken", False)
+                bluesky_reply = client.send_post(post_structure)
+        else:
+            image_url = entry["image"]
+            img_data = prepare_image(image_url)
+            if sys.getsizeof(img_data) < 100:
+                log_this("Bluesky post image couldn't be retrieved", False)
                 bluesky_reply = client.send_post(post_structure)
             else:
-                image_url = entry["image"]
-                img_data = prepare_image(image_url)
-                if sys.getsizeof(img_data) < 100:
-                    print(timestamp + " Bluesky post image couldn't be retrieved", file=sys.stderr)
-                    bluesky_reply = client.send_post(post_structure)
-                else:
-                    bluesky_reply = client.send_image(text=post_structure, image=img_data, image_alt=entry["image_desc"])
-            try:
-                reply = reply + bluesky_reply
-            except:
-                reply = bluesky_reply
+                bluesky_reply = client.send_image(text=post_structure, image=img_data, image_alt=entry["image_desc"])
+        try:
+            reply = reply + bluesky_reply
+        except:
+            reply = bluesky_reply
 
-        print(timestamp + " Published latest blog post to Bluesky", file=sys.stderr)
-        return reply
-    else:
-        print(timestamp + " Latest blog post already published", file=sys.stderr)
-        return "No need to publish."
+    log_this("Published latest blog post to Bluesky", False)
+    return reply
 
-def main():
-    global check_file
-    global handle
-    global timestamp
-    global pubdate
+def init_client() -> Client:
+    global client
 
-    pubdate=""
-
-    # Get timestamps for log entries and comparison
-    timestamp =(f'{datetime.now():%Y-%m-%d %H:%M:%S%z}')
-    check_date=datetime.now(timezone.utc).isoformat(sep="T", timespec="seconds")
-    # Get needed info from files. Adjust userpath as needed.
-    userpath=(re.sub("^(.+/Documents/).*", r"\1", os.path.dirname(os.path.realpath(__file__))))
-    check_file = userpath + CHECK_FILE
-    pw_file = userpath + BLUESKY_PW_FILE
-    handle_file=userpath + BLUESKY_HANDLE_FILE
-    if not os.path.isfile(pw_file):
-        print(timestamp + " Bluesky password file does not exist", file=sys.stderr)
-    elif not os.path.isfile(handle_file):
-        print(timestamp + " Bluesky handle file does not exist", file=sys.stderr)
+    if (not os.path.isfile(BLUESKY_PW_FILE)):
+        log_this("Bluesky password file does not exist", True)
+    elif (not os.path.isfile(BLUESKY_HANDLE_FILE)):
+        log_this("Bluesky handle file does not exist", True)
     else:
         # Get needed info from files
-        f = open(pw_file, "r")
+        f = open(BLUESKY_PW_FILE, "r")
         app_pw = f.readlines()[0].replace("\n", "")
-        f = open(handle_file, "r")
+        f = open(BLUESKY_HANDLE_FILE, "r")
         handle = f.readlines()[0].replace("\n", "")
         # Do the actual work
         client = Client()
         try:
-            client.login(handle, app_pw)
+            client.on_session_change(atsession.on_session_change)
+
+            session_string = atsession.get_session()
+            if session_string:
+                print('Reusing session')
+                client.login(session_string=session_string)
+            else:
+                print('Creating new session')
+                client.login(handle, app_pw)
         except:
-            print(timestamp + " Problem logging into Bluesky", file=sys.stderr)
+            log_this("Problem logging into Bluesky", False)
             # Trapping this, but not doing anything with it now
             e = sys.exc_info()[1]
+            print(e)
+            return False
         else:
-            response = bluesky_rss_bot(app_pw, client)
+            return True
+
+def main():
+#     global client
+    global pubdate
+
+    pubdate = ""
+
+    check_date = datetime.now(timezone.utc).isoformat(sep="T", timespec="seconds")
+    # Fetch content from the RSS feed
+    validEntries = get_rss_content()
+    if validEntries:
+        attempt = init_client()
+        if (attempt):
+            response = bluesky_rss_bot(validEntries)
             # Finish by writing the date to file for next run
-            with open(check_file, 'w') as f:
+            with open(CHECK_FILE, 'w') as f:
                 f.write(check_date)
                 f.close()
             print(response)
+    else:
+        log_this("Latest blog post already published", False)
 
 if __name__ == "__main__":
     main()
