@@ -102,8 +102,17 @@ then
   qpdf "$input" --pages . 2-z -- "$input_new"
 fi
 
+# Make sure it appears to be a "bag of files", so at least as many
+# images as pages
+img_count=$(pdfimages -list "$input_new" | tail -n -2 | wc -l)
+pg_count=$(pdfinfo "$input_new" | grep Pages | awk '{print $2}')
+if [[ $img_count -lt $pg_count ]]; then
+  echo -e $'\a'"The PDF does not appear to contain enough images, and so likely contains real text.\n\nExiting..."
+  exit 1
+fi
+
 # Strip metadata from input file
-input_clean="$input_new"
+# input_clean="$input_new"
 # exiftool won't overwrite an existing file, so give output a unique name
 input_clean="$tmpdir"input_"$datestring".pdf
 exiftool -q -q "$input_new" -all='' -o "$input_clean"
