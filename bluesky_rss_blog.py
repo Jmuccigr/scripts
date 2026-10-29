@@ -7,36 +7,37 @@
 # It logs both success and failure.
 # I also pushed some constants into files for privacy.
 
-from atproto import Client, client_utils, models, Session, SessionEvent
-import atsession
-from bs4 import BeautifulSoup
-from datetime import datetime, timezone
+# from atproto import Client, client_utils, models, Session, SessionEvent
+# import atsession
+# from datetime import datetime, timezone
 from PIL import Image
+from bs4 import BeautifulSoup
 import feedparser
-import io
+# import io
 from io import BytesIO
 import json
 import os.path
-import re
-import sys
-import tempfile
-import time
-import urllib3 
+# import re
+# import sys
+# import tempfile
+# import time
+# import urllib3 
 from local_utils import *
+from bluesky_setup import *
 
 # Constants
-userpath=re.sub(r"^(.+\/Documents\/).*", r"\1", os.path.dirname(os.path.realpath(__file__)))
-TMPDIR = tempfile.gettempdir() + "/"
-BLUESKY_PW_FILE = userpath + "bluesky_app_password.txt"
-BLUESKY_HANDLE_FILE = userpath + "bluesky_handle.txt"
-CHECK_FILE = userpath + "blogpost_date.txt"
+# userpath=re.sub(r"^(.+\/Documents\/).*", r"\1", os.path.dirname(os.path.realpath(__file__)))
+# TMPDIR = tempfile.gettempdir() + "/"
+# BLUESKY_PW_FILE = userpath + "bluesky_app_password.txt"
+# BLUESKY_HANDLE_FILE = userpath + "bluesky_handle.txt"
+CHECK_FILE = USERPATH + "blogpost_date.txt"
 MAX_POSTS = 3
 MAX_IMAGE_SIZE = 1000000
 EMBED_IMG = TMPDIR + "blogscreencap.jpg"
 FEED_URL = "https://jmuccigr.github.io/feed.xml"
-BLUESKY_API_ENDPOINT = "https://bsky.social/xrpc/com.atproto.repo.createRecord"
-API_KEY_URL = "https://bsky.social/xrpc/com.atproto.server.createSession"
-atsession.SESSION_FILE = TMPDIR + "bluesky_session.txt"
+# BLUESKY_API_ENDPOINT = "https://bsky.social/xrpc/com.atproto.repo.createRecord"
+# API_KEY_URL = "https://bsky.social/xrpc/com.atproto.server.createSession"
+# atsession.SESSION_FILE = TMPDIR + "bluesky_session.txt"
 POST_DELAY = 5 #in seconds
 
 # def get_session() -> Optional[str]:
@@ -74,7 +75,7 @@ def compare_post_dates(post_date):
     try:
         last_published_date = datetime.strptime(pubdate, "%Y-%m-%dT%H:%M:%S%z")
     except Exception as e:
-        log_this("Something wrong with last pub date in local file: " + e.__str__(), True)
+        log_this("Blog: Something wrong with last pub date in local file: " + e.__str__(), True)
     latest_post_date = datetime.strptime(post_date, "%Y-%m-%dT%H:%M:%S%z")
     if latest_post_date > last_published_date:
         return latest_post_date  # latest post is newer
@@ -203,7 +204,7 @@ def prepare_image(image_url):
             img_data = img_byte_arr.getvalue()
     except:
         # Log error & return something small
-        log_this("Unable to get image file: " + image_url, False)
+        log_this("Unable to get blog image file: " + image_url, False)
         img_data = ""
         
     return(img_data)
@@ -227,13 +228,13 @@ def bluesky_rss_bot(validEntries):
                 embed = prepare_embedded_link(title, body, entry["link"])
                 bluesky_reply = client.send_post(post_structure, embed=embed)
             else:
-                log_this("Bluesky embed image couldn't be taken", False)
+                log_this("Blog: Bluesky embed image couldn't be taken", False)
                 bluesky_reply = client.send_post(post_structure)
         else:
             image_url = entry["image"]
             img_data = prepare_image(image_url)
             if sys.getsizeof(img_data) < 100:
-                log_this("Bluesky post image couldn't be retrieved", False)
+                log_this("Blog: Bluesky post image couldn't be retrieved", False)
                 bluesky_reply = client.send_post(post_structure)
             else:
                 bluesky_reply = client.send_image(text=post_structure, image=img_data, image_alt=entry["image_desc"])
@@ -249,9 +250,9 @@ def init_client() -> Client:
     global client
 
     if (not os.path.isfile(BLUESKY_PW_FILE)):
-        log_this("Bluesky password file does not exist", True)
+        log_this("Blog: Bluesky password file does not exist", True)
     elif (not os.path.isfile(BLUESKY_HANDLE_FILE)):
-        log_this("Bluesky handle file does not exist", True)
+        log_this("Blog: Bluesky handle file does not exist", True)
     else:
         # Get needed info from files
         f = open(BLUESKY_PW_FILE, "r")
@@ -271,7 +272,7 @@ def init_client() -> Client:
                 print('Creating new session')
                 client.login(handle, app_pw)
         except:
-            log_this("Problem logging into Bluesky", False)
+            log_this("Blog: Problem logging into Bluesky", False)
             # Trapping this, but not doing anything with it now
             e = sys.exc_info()[1]
             print(e)

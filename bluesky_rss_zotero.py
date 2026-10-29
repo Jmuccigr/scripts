@@ -7,36 +7,37 @@
 # It logs both success and failure.
 # I also pushed some constants into files for privacy.
 
-from atproto import Client, client_utils, Session, SessionEvent
-import atsession
-from datetime import datetime, timezone
+# from atproto import Client, client_utils, Session, SessionEvent
+# import atsession
+# from datetime import datetime, timezone
 from PIL import Image
 import feedparser
-import io
+# import io
 from io import BytesIO
 import json
 import os.path
-import re
-import sys
-import tempfile
-import time
-import urllib3
+# import re
+# import sys
+# import tempfile
+# import time
+# import urllib3
 from local_utils import *
+from bluesky_setup import *
 
 # Constants
-userpath=re.sub(r"^(.+\/Documents\/).*", r"\1", os.path.dirname(os.path.realpath(__file__)))
-TMPDIR = tempfile.gettempdir() + "/"
-BLUESKY_PW_FILE = userpath + "bluesky_app_password.txt"
-BLUESKY_HANDLE_FILE = userpath + "bluesky_handle.txt"
-CHECK_FILE = userpath + "zotero_date.txt"
+# userpath=re.sub(r"^(.+\/Documents\/).*", r"\1", os.path.dirname(os.path.realpath(__file__)))
+# TMPDIR = tempfile.gettempdir() + "/"
+# BLUESKY_PW_FILE = userpath + "bluesky_app_password.txt"
+# BLUESKY_HANDLE_FILE = userpath + "bluesky_handle.txt"
+CHECK_FILE = USERPATH + "zotero_date.txt"
 ICON_FILE = "https://jmuccigr.github.io/images/zotero_icon.png"
 MAX_POSTS = 3
 MAX_IMAGE_SIZE = 1000000
-atsession.SESSION_FILE = TMPDIR + "bluesky_session.txt"
+# atsession.SESSION_FILE = TMPDIR + "bluesky_session.txt"
 # In this case I can limit the length of the returned feed to save processing time
 FEED_URL = "https://api.zotero.org/users/493397/items/top?limit=" + MAX_POSTS.__str__() + "format=atom&v=3"
-BLUESKY_API_ENDPOINT = "https://bsky.social/xrpc/com.atproto.repo.createRecord"
-API_KEY_URL = "https://bsky.social/xrpc/com.atproto.server.createSession"
+# BLUESKY_API_ENDPOINT = "https://bsky.social/xrpc/com.atproto.repo.createRecord"
+# API_KEY_URL = "https://bsky.social/xrpc/com.atproto.server.createSession"
 POST_DELAY = 5 #in seconds
 
 def compare_post_dates(post_date):
@@ -59,7 +60,7 @@ def compare_post_dates(post_date):
     try:
         last_published_date = datetime.strptime(pubdate, "%Y-%m-%dT%H:%M:%S%z")
     except Exception as e:
-        log_this("Something wrong with last pub date in local file: " + e.__str__(), True)
+        log_this("Zotero: Something wrong with last pub date in local file: " + e.__str__(), True)
     if latest_post_date > last_published_date:
         return latest_post_date  # latest post is newer
     else:
@@ -127,7 +128,7 @@ def prepare_image(image_url):
         response = http.request("GET", image_url)
         status = response.status
         if (response.status != 200):
-            log_this("Unable to download image file. Error " + response.status.__str__() + ": " + image_url, False)
+            log_this("Unable to download Zotero image file. Error " + response.status.__str__() + ": " + image_url, False)
             return ""
         img_data = response.data
         # Using a quick and dirty rule of thumb: images less than dim in size will be
@@ -146,7 +147,7 @@ def prepare_image(image_url):
             img_data = img_byte_arr.getvalue()
     except:
         # Log error & return something small
-        log_this("Unable to get image file: " + image_url, False)
+        log_this("Unable to get Zotero image file: " + image_url, False)
         img_data = ""
 
     return(img_data)
@@ -186,9 +187,9 @@ def init_client() -> Client:
     global client
 
     if (not os.path.isfile(BLUESKY_PW_FILE)):
-        log_this("Bluesky password file does not exist", True)
+        log_this("Zotero RSS: Bluesky password file does not exist", True)
     elif (not os.path.isfile(BLUESKY_HANDLE_FILE)):
-        log_this("Bluesky handle file does not exist", True)
+        log_this("Zotero RSS: Bluesky handle file does not exist", True)
     else:
         # Get needed info from files
         f = open(BLUESKY_PW_FILE, "r")
